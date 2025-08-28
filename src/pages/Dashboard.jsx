@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import supabase from "../helper/supabaseClient";
 import { useNavigate } from "react-router-dom";
+import { FaChevronDown, FaChevronUp } from "react-icons/fa";
+import ProfileReports from "./ProfileReports";
 import "./admin.css";
 
 function Dashboard() {
@@ -9,6 +11,8 @@ function Dashboard() {
   const [selectedTable, setSelectedTable] = useState("");
   const [adminData, setAdminData] = useState([]);
   const [clubAppData, setClubAppData] = useState([]);
+  const [reportsDropdownOpen, setReportsDropdownOpen] = useState(false);
+
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -138,6 +142,32 @@ const getImageUrl = (path) => {
         <button className="sidebar-btn" onClick={() => handleTableSelect("club_applications")}>
           View Club Application
         </button>
+        <div className="sidebar-dropdown">
+          <button
+            className="sidebar-btn"
+            onClick={() => setReportsDropdownOpen((open) => !open)}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+          >
+            Reports
+            {reportsDropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
+          </button>
+          {reportsDropdownOpen && (
+            <div className="dropdown-content">
+              <button
+                className="sidebar-btn dropdown-btn"
+                onClick={() => handleTableSelect("profile_reports")}
+              >
+                Profile Reports
+              </button>
+              <button
+                className="sidebar-btn dropdown-btn"
+                onClick={() => handleTableSelect("post_reports")}
+              >
+                Post Reports
+              </button>
+            </div>
+          )}
+        </div>
         <button className="sign-out-btn" onClick={signOut}>
           Sign Out
         </button>
@@ -174,6 +204,13 @@ const getImageUrl = (path) => {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Profile Reports Table */}
+          {selectedTable === "profile_reports" && (
+            <div className="table-container">
+              <ProfileReports />      
             </div>
           )}
 
@@ -255,8 +292,10 @@ const getImageUrl = (path) => {
             </div>
           )}
         </div>
+        
       </div>
     </div>
+    
   );
 }
 

@@ -444,3 +444,18 @@ body, html {
     font-size: 0.7rem;
   }
 }
+.sidebar-dropdown {
+  position: relative;
+}
+.dropdown-content {
+  display: flex;
+  flex-direction: column;
+  margin-left: 20px;
+}
+.dropdown-btn {
+ 
+  border: none;
+  text-align: left;
+  padding-left: 20px;
+  font-size: 0.95em;
+}
