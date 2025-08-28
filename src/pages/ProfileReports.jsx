@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import supabase from "../helper/supabaseClient";
 
 const TIME_FILTERS = [
@@ -8,20 +8,73 @@ const TIME_FILTERS = [
   { label: "This Month", value: "month" },
 ];
 
+const REPORT_TYPES = [
+  { label: "User", value: "user" },
+  { label: "Club", value: "club" },
+  { label: "Organizer", value: "organizer" },
+  { label: "Team", value: "team" },
+];
+
+const SORT_OPTIONS = [
+  { label: "Sort by Report Count", value: "count" },
+  { label: "Sort by Most Recent", value: "recent" },
+];
+
+const TABLE_MAP = {
+  user: { table: "user_reports", id: "reported_id", join: "users:reported_id(id, name, email, suspended_until)" },
+  club: { table: "club_reports", id: "reported_id", join: "clubs:reported_id(id, name, email, suspended_until)" },
+  organizer: { table: "organizer_reports", id: "reported_id", join: "organizers:reported_id(id, name, email, suspended_until)" },
+  team: { table: "team_reports", id: "reported_id", join: "teams:reported_id(id, name, email, suspended_until)" },
+};
+
 export default function ProfileReports() {
   const [reports, setReports] = useState([]);
   const [sortBy, setSortBy] = useState("count");
   const [timeFilter, setTimeFilter] = useState("all");
+  const [reportType, setReportType] = useState("user");
   const [loading, setLoading] = useState(false);
   const [suspendModal, setSuspendModal] = useState({ open: false, userId: null, until: "" });
+
+  // Dropdown states
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
+  const [timeDropdownOpen, setTimeDropdownOpen] = useState(false);
+
+  // Dropdown refs for outside click
+  const typeDropdownRef = useRef(null);
+  const sortDropdownRef = useRef(null);
+  const timeDropdownRef = useRef(null);
 
   useEffect(() => {
     fetchReports();
     // eslint-disable-next-line
-  }, [sortBy, timeFilter]);
+  }, [sortBy, timeFilter, reportType]);
+
+  // Handle outside click for all dropdowns
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        typeDropdownRef.current && !typeDropdownRef.current.contains(event.target)
+      ) setTypeDropdownOpen(false);
+      if (
+        sortDropdownRef.current && !sortDropdownRef.current.contains(event.target)
+      ) setSortDropdownOpen(false);
+      if (
+        timeDropdownRef.current && !timeDropdownRef.current.contains(event.target)
+      ) setTimeDropdownOpen(false);
+    }
+    if (typeDropdownOpen || sortDropdownOpen || timeDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [typeDropdownOpen, sortDropdownOpen, timeDropdownOpen]);
 
   async function fetchReports() {
     setLoading(true);
+
+    const { table, id, join } = TABLE_MAP[reportType];
 
     // Build time filter
     let fromDate = null;
@@ -36,10 +89,10 @@ export default function ProfileReports() {
       fromDate.setMonth(fromDate.getMonth() - 1);
     }
 
-    // Fetch all user reports with reported user info
+    // Fetch all reports with reported entity info
     let query = supabase
-      .from("user_reports")
-      .select("report_id, reported_id, reason, approval_status, created_at, users:reported_id(id, name, email, suspended_until)");
+      .from(table)
+      .select(`report_id, ${id}, reason, approval_status, created_at, ${join}`);
 
     if (fromDate) {
       query = query.gte("created_at", fromDate.toISOString());
@@ -55,10 +108,10 @@ export default function ProfileReports() {
     // Group by reported_id and count reports
     const grouped = {};
     data.forEach((r) => {
-      const uid = r.reported_id;
+      const uid = r[id];
       if (!grouped[uid]) {
         grouped[uid] = {
-          user: r.users,
+          entity: r[Object.keys(r).find(k => typeof r[k] === "object" && r[k]?.id === uid)],
           reports: [],
         };
       }
@@ -66,7 +119,7 @@ export default function ProfileReports() {
     });
 
     let groupedArr = Object.values(grouped).map((g) => ({
-      ...g.user,
+      ...g.entity,
       reportCount: g.reports.length,
       reasons: g.reports.map((r) => r.reason),
       lastReported: g.reports[g.reports.length - 1]?.created_at,
@@ -83,39 +136,124 @@ export default function ProfileReports() {
     setLoading(false);
   }
 
-  // Waive: mark all reports for this user as "waived"
-  async function handleWaive(userId) {
+  // Waive: mark all reports for this entity as "waived"
+  async function handleWaive(entityId) {
+    const { table, id } = TABLE_MAP[reportType];
     await supabase
-      .from("user_reports")
+      .from(table)
       .update({ approval_status: "waived" })
-      .eq("reported_id", userId)
+      .eq(id, entityId)
       .eq("approval_status", "pending");
     fetchReports();
   }
 
   // Penalize: set suspended_until
-  async function handlePenalize(userId, untilDate) {
+  async function handlePenalize(entityId, untilDate) {
+    const { join } = TABLE_MAP[reportType];
+    // Extract table name from join string (e.g., "users:reported_id(...)")
+    const entityTable = join.split(":")[0];
     await supabase
-      .from("users")
+      .from(entityTable)
       .update({ suspended_until: untilDate })
-      .eq("id", userId);
+      .eq("id", entityId);
     setSuspendModal({ open: false, userId: null, until: "" });
     fetchReports();
   }
 
+  // Dropdown button component for reuse
+  function DropdownButton({ label, options, selected, open, setOpen, onSelect, dropdownRef }) {
+    return (
+      <div style={{ position: "relative" }} ref={dropdownRef}>
+        <button
+          className="sidebar-btn"
+          style={{
+            backgroundColor: "var(--primary-color)",
+            color: "#fff",
+            minWidth: 160,
+            marginBottom: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+          onClick={() => setOpen((prev) => !prev)}
+          type="button"
+        >
+          {options.find(opt => opt.value === selected)?.label || label}
+          <span style={{ marginLeft: 8, fontSize: 12 }}>▼</span>
+        </button>
+        {open && (
+          <div
+            style={{
+              position: "absolute",
+              top: "110%",
+              left: 0,
+              background: "#fff",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
+              borderRadius: 6,
+              zIndex: 10,
+              minWidth: 160,
+              padding: "4px 0"
+            }}
+          >
+            {options.map((opt) => (
+              <button
+                key={opt.value}
+                className="sidebar-btn"
+                style={{
+                  backgroundColor: selected === opt.value ? "var(--primary-color)" : "transparent",
+                  color: selected === opt.value ? "#fff" : "var(--primary-color)",
+                  borderRadius: 0,
+                  width: "100%",
+                  textAlign: "left",
+                  marginBottom: 0,
+                  padding: "10px 16px"
+                }}
+                onClick={() => {
+                  onSelect(opt.value);
+                  setOpen(false);
+                }}
+                type="button"
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div>
+    <div style={{ minHeight: "500px" }}>
       <h2>Profile Reports</h2>
-      <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
-        <select value={sortBy} onChange={e => setSortBy(e.target.value)}>
-          <option value="count">Sort by Report Count</option>
-          <option value="recent">Sort by Most Recent</option>
-        </select>
-        <select value={timeFilter} onChange={e => setTimeFilter(e.target.value)}>
-          {TIME_FILTERS.map(f => (
-            <option key={f.value} value={f.value}>{f.label}</option>
-          ))}
-        </select>
+      <div style={{ display: "flex", gap: 16, marginBottom: 16, alignItems: "center" }}>
+        <DropdownButton
+          label="Report Type"
+          options={REPORT_TYPES}
+          selected={reportType}
+          open={typeDropdownOpen}
+          setOpen={setTypeDropdownOpen}
+          onSelect={setReportType}
+          dropdownRef={typeDropdownRef}
+        />
+        <DropdownButton
+          label="Sort"
+          options={SORT_OPTIONS}
+          selected={sortBy}
+          open={sortDropdownOpen}
+          setOpen={setSortDropdownOpen}
+          onSelect={setSortBy}
+          dropdownRef={sortDropdownRef}
+        />
+        <DropdownButton
+          label="Time"
+          options={TIME_FILTERS}
+          selected={timeFilter}
+          open={timeDropdownOpen}
+          setOpen={setTimeDropdownOpen}
+          onSelect={setTimeFilter}
+          dropdownRef={timeDropdownRef}
+        />
       </div>
       {loading ? (
         <p>Loading...</p>
