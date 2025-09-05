@@ -20,7 +20,7 @@ function StatusBadge({ status }) {
   return <span style={style}>{status}</span>;
 }
 
-export default function UserReportTable({ reports, onPenalize, onWaive, onRestore, buttonStyle }) {
+export default function UserReportTable({ reports, onPenalize, onWaive }) {
   const buttonStyle = {
     minWidth: 90,
     padding: "8px 0",

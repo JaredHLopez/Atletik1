@@ -31,8 +31,6 @@ const STATUS_OPTIONS = [
   { label: "Rejected", value: "rejected" },
 ];
 
-
-
 const TABLE_MAP = {
   user: {
     table: "user_reports",
