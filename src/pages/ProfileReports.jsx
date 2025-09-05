@@ -7,10 +7,10 @@ import TeamReportTable from "./TeamReportTable";
 
 // Constants
 const TIME_FILTERS = [
-  { label: "All Time", value: "all" },
   { label: "Today", value: "day" },
   { label: "This Week", value: "week" },
   { label: "This Month", value: "month" },
+  { label: "All Time", value: "all" },
 ];
 
 const REPORT_TYPES = [
@@ -21,9 +21,17 @@ const REPORT_TYPES = [
 ];
 
 const SORT_OPTIONS = [
-  { label: "Sort by Report Count", value: "count" },
-  { label: "Sort by Most Recent", value: "recent" },
+  { label: "Most Recent", value: "recent" },
+  { label: "Report Count", value: "count" },
 ];
+
+const STATUS_OPTIONS = [
+  { label: "Pending", value: "pending" },
+  { label: "Penalized", value: "penalized" },
+  { label: "Rejected", value: "rejected" },
+];
+
+
 
 const TABLE_MAP = {
   user: {
@@ -56,7 +64,6 @@ const TABLE_MAP = {
   }
 };
 
-// Helper functions
 const getTimeFilter = (timeFilter) => {
   const now = new Date();
   switch (timeFilter) {
@@ -97,7 +104,6 @@ const sortReports = (reports, sortBy) => {
   });
 };
 
-// Dropdown component
 function DropdownButton({
   label,
   options,
@@ -116,7 +122,7 @@ function DropdownButton({
         style={{
           backgroundColor: "var(--primary-color)",
           color: "#fff",
-          minWidth: 160,
+          minWidth: 120,
           marginBottom: 0,
           display: "flex",
           alignItems: "center",
@@ -140,7 +146,7 @@ function DropdownButton({
             boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
             borderRadius: 6,
             zIndex: 10,
-            minWidth: 160,
+            minWidth: 120,
             padding: "4px 0",
             display: "flex",
             flexDirection: "column"
@@ -174,13 +180,13 @@ function DropdownButton({
   );
 }
 
-// Main component
 export default function ProfileReports() {
   // State
   const [reports, setReports] = useState([]);
-  const [sortBy, setSortBy] = useState("count");
-  const [timeFilter, setTimeFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("recent");
+  const [timeFilter, setTimeFilter] = useState("day");
   const [reportType, setReportType] = useState("user");
+  const [statusFilter, setStatusFilter] = useState("pending");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [suspendModal, setSuspendModal] = useState({
@@ -193,11 +199,13 @@ export default function ProfileReports() {
   const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
   const [timeDropdownOpen, setTimeDropdownOpen] = useState(false);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
 
   // Refs
   const typeDropdownRef = useRef(null);
   const sortDropdownRef = useRef(null);
   const timeDropdownRef = useRef(null);
+  const statusDropdownRef = useRef(null);
 
   // Fetch reports function
   const fetchReports = useCallback(async () => {
@@ -211,7 +219,7 @@ export default function ProfileReports() {
       let query = supabase
         .from(table)
         .select(`report_id, ${id}, reason, approval_status, created_at, ${join}`)
-        .eq("approval_status", "pending"); // Only fetch pending reports
+        .eq("approval_status", statusFilter);
 
       if (fromDate) {
         query = query.gte("created_at", fromDate.toISOString());
@@ -248,19 +256,19 @@ export default function ProfileReports() {
           Array.isArray(report.reason) ? report.reason : [report.reason]
         ).filter(Boolean);
 
-        // Get all report IDs for waiving (since we're only fetching pending reports now)
         const reportIds = group.reports.map(report => report.report_id);
 
         return {
           ...group.entity,
-          reportIds: reportIds, // Store all report IDs (all are pending now)
+          reportIds: reportIds,
           reportCount: group.reports.length,
           reasons: [...new Set(reasons)],
           lastReported: group.reports.reduce((latest, report) => {
             return new Date(report.created_at) > new Date(latest)
               ? report.created_at
               : latest;
-          }, group.reports[0]?.created_at)
+          }, group.reports[0]?.created_at),
+          approval_status: group.reports[0]?.approval_status
         };
       });
 
@@ -274,29 +282,22 @@ export default function ProfileReports() {
     } finally {
       setLoading(false);
     }
-  }, [sortBy, timeFilter, reportType]);
+  }, [sortBy, timeFilter, reportType, statusFilter]);
 
-  // Handle waive action - Simplified since we only have pending reports
+  // Handle waive action
   const handleWaive = useCallback(async (entityId) => {
     try {
-      // Find the report object for this entity
       const reportObj = reports.find(r => r[TABLE_MAP[reportType].pk] === entityId);
       if (!reportObj || !reportObj.reportIds || reportObj.reportIds.length === 0) {
         setError("No reports found for this entity");
         return;
       }
-
       const { table } = TABLE_MAP[reportType];
-      
-      // Update all reports for this entity to rejected
       const { error } = await supabase
         .from(table)
         .update({ approval_status: "rejected" })
         .in("report_id", reportObj.reportIds);
-      
       if (error) throw error;
-      
-      // Clear any existing error
       setError(null);
       await fetchReports();
     } catch (err) {
@@ -305,23 +306,34 @@ export default function ProfileReports() {
     }
   }, [reportType, fetchReports, reports]);
 
-  // Handle penalize action - Fixed to use correct entity ID
+  // Handle penalize action
   const handlePenalize = useCallback(async (entityId, untilDate) => {
     try {
       if (!untilDate) {
         setError("Please select a suspension date");
         return;
       }
-      
-      const { entityTable, pk } = TABLE_MAP[reportType];
-      const { error } = await supabase
+      const { entityTable, pk, table } = TABLE_MAP[reportType];
+
+      // 1. Suspend the entity
+      const { error: suspendError } = await supabase
         .from(entityTable)
         .update({ suspended_until: untilDate })
         .eq(pk, entityId);
-      
-      if (error) throw error;
-      
-      // Clear any existing error and update suspension
+
+      if (suspendError) throw suspendError;
+
+      // 2. Update all related reports to "penalized"
+      const reportObj = reports.find(r => r[pk] === entityId);
+      if (reportObj && reportObj.reportIds && reportObj.reportIds.length > 0) {
+        const { error: reportError } = await supabase
+          .from(table)
+          .update({ approval_status: "penalized" })
+          .in("report_id", reportObj.reportIds)
+          .eq("approval_status", "pending");
+        if (reportError) throw reportError;
+      }
+
       setError(null);
       setSuspendModal({ open: false, userId: null, until: "" });
       await fetchReports();
@@ -329,12 +341,15 @@ export default function ProfileReports() {
       console.error("Error penalizing entity:", err);
       setError("Failed to suspend entity");
     }
-  }, [reportType, fetchReports]);
+  }, [reportType, fetchReports, reports]);
 
-  // Close modal
-  const closeSuspendModal = useCallback(() => {
-    setSuspendModal({ open: false, userId: null, until: "" });
-  }, []);
+  // Reset filters
+  const handleResetFilters = () => {
+    setReportType("user");
+    setSortBy("recent");
+    setTimeFilter("day");
+    setStatusFilter("pending");
+  };
 
   // Effects
   useEffect(() => {
@@ -353,48 +368,68 @@ export default function ProfileReports() {
       if (timeDropdownRef.current && !timeDropdownRef.current.contains(event.target)) {
         setTimeDropdownOpen(false);
       }
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
+        setStatusDropdownOpen(false);
+      }
     }
-    const hasOpenDropdown = typeDropdownOpen || sortDropdownOpen || timeDropdownOpen;
+    const hasOpenDropdown = typeDropdownOpen || sortDropdownOpen || timeDropdownOpen || statusDropdownOpen;
     if (hasOpenDropdown) {
       document.addEventListener("mousedown", handleClickOutside);
       return () => document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [typeDropdownOpen, sortDropdownOpen, timeDropdownOpen]);
+  }, [typeDropdownOpen, sortDropdownOpen, timeDropdownOpen, statusDropdownOpen]);
 
   // Render correct table based on reportType
   function renderReportTable() {
+    const sharedButtonStyle = {
+      minWidth: 90,
+      padding: "8px 0",
+      fontSize: "14px"
+    };
     switch (reportType) {
       case "user":
         return (
-          <UserReportTable
-            reports={reports}
-            onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
-            onWaive={handleWaive}
-          />
+          <div style={{ overflowX: "auto" }}>
+            <UserReportTable
+              reports={reports}
+              onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
+              onWaive={handleWaive}
+              buttonStyle={sharedButtonStyle}
+            />
+          </div>
         );
       case "club":
         return (
-          <ClubReportTable
-            reports={reports}
-            onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
-            onWaive={handleWaive}
-          />
+          <div style={{ overflowX: "auto" }}>
+            <ClubReportTable
+              reports={reports}
+              onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
+              onWaive={handleWaive}
+              buttonStyle={sharedButtonStyle}
+            />
+          </div>
         );
       case "organizer":
         return (
-          <OrganizerReportTable
-            reports={reports}
-            onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
-            onWaive={handleWaive}
-          />
+          <div style={{ overflowX: "auto" }}>
+            <OrganizerReportTable
+              reports={reports}
+              onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
+              onWaive={handleWaive}
+              buttonStyle={sharedButtonStyle}
+            />
+          </div>
         );
       case "team":
         return (
-          <TeamReportTable
-            reports={reports}
-            onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
-            onWaive={handleWaive}
-          />
+          <div style={{ overflowX: "auto" }}>
+            <TeamReportTable
+              reports={reports}
+              onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
+              onWaive={handleWaive}
+              buttonStyle={sharedButtonStyle}
+            />
+          </div>
         );
       default:
         return null;
@@ -407,13 +442,13 @@ export default function ProfileReports() {
       {/* Controls */}
       <div style={{
         display: "flex",
-        gap: 16,
+        gap: 12,
         marginBottom: 16,
         alignItems: "center",
         flexWrap: "wrap"
       }}>
         <DropdownButton
-          label="Report Type"
+          label="All Reports"
           options={REPORT_TYPES}
           selected={reportType}
           open={typeDropdownOpen}
@@ -422,7 +457,7 @@ export default function ProfileReports() {
           dropdownRef={typeDropdownRef}
         />
         <DropdownButton
-          label="Sort"
+          label="Most Recent"
           options={SORT_OPTIONS}
           selected={sortBy}
           open={sortDropdownOpen}
@@ -431,7 +466,7 @@ export default function ProfileReports() {
           dropdownRef={sortDropdownRef}
         />
         <DropdownButton
-          label="Time"
+          label="All Time"
           options={TIME_FILTERS}
           selected={timeFilter}
           open={timeDropdownOpen}
@@ -439,6 +474,45 @@ export default function ProfileReports() {
           onSelect={setTimeFilter}
           dropdownRef={timeDropdownRef}
         />
+        <DropdownButton
+          label="All Status"
+          options={STATUS_OPTIONS}
+          selected={statusFilter}
+          open={statusDropdownOpen}
+          setOpen={setStatusDropdownOpen}
+          onSelect={setStatusFilter}
+          dropdownRef={statusDropdownRef}
+        />
+        <button
+          style={{
+            background: "#eee",
+            color: "#333",
+            border: "none",
+            borderRadius: 6,
+            padding: "7px 16px",
+            fontSize: "13px",
+            cursor: "pointer",
+            marginLeft: 4
+          }}
+          onClick={handleResetFilters}
+        >
+          Reset Filters
+        </button>
+        <button
+          style={{
+            background: "#2563eb",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6,
+            padding: "7px 16px",
+            fontSize: "13px",
+            cursor: "pointer",
+            marginLeft: 4
+          }}
+          onClick={fetchReports}
+        >
+          Refresh
+        </button>
       </div>
       {/* Error display */}
       {error && (
@@ -500,7 +574,8 @@ export default function ProfileReports() {
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button
                 className="decline-btn"
-                onClick={closeSuspendModal}
+                onClick={() => setSuspendModal({ open: false, userId: null, until: "" })}
+                style={{ minWidth: 90, padding: "8px 0", fontSize: "14px" }}
               >
                 Cancel
               </button>
@@ -508,6 +583,7 @@ export default function ProfileReports() {
                 className="accept-btn"
                 onClick={() => handlePenalize(suspendModal.userId, suspendModal.until)}
                 disabled={!suspendModal.until}
+                style={{ minWidth: 90, padding: "8px 0", fontSize: "14px" }}
               >
                 Suspend
               </button>
