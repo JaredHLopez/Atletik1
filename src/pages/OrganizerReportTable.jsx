@@ -20,7 +20,7 @@ function StatusBadge({ status }) {
   return <span style={style}>{status}</span>;
 }
 
-export default function OrganizerReportTable({ reports, onPenalize, onWaive }) {
+export default function OrganizerReportTable({ reports, onPenalize, onWaive, onRestore, onReject }) {
   const buttonStyle = {
     minWidth: 90,
     padding: "8px 0",
@@ -121,34 +121,52 @@ export default function OrganizerReportTable({ reports, onPenalize, onWaive }) {
                 </td>
                 <td style={{ border: "1px solid #eee", padding: "8px 6px", textAlign: "center" }}>
                   <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                    <button
-                      className="accept-btn"
-                      style={{
-                        ...buttonStyle,
-                        background: "#52c41a",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: 6,
-                        cursor: "pointer"
-                      }}
-                      onClick={() => onPenalize(report.user_id)}
-                    >
-                      Penalize
-                    </button>
-                    <button
-                      className="decline-btn"
-                      style={{
-                        ...buttonStyle,
-                        background: "#cf1322",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: 6,
-                        cursor: "pointer"
-                      }}
-                      onClick={() => onWaive(report.user_id)}
-                    >
-                      Waive
-                    </button>
+                    {(report.approval_status === "rejected" || report.approval_status === "penalized") ? (
+                      <button
+                        style={{
+                          ...buttonStyle,
+                          background: "#faad14",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 6,
+                          cursor: "pointer"
+                        }}
+                        onClick={() => onRestore(report.user_id)}
+                      >
+                        <span style={{ width: "100%", textAlign: "center" }}>Restore</span>
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          className="accept-btn"
+                          style={{
+                            ...buttonStyle,
+                            background: "#52c41a",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: 6,
+                            cursor: "pointer"
+                          }}
+                          onClick={() => onPenalize(report.user_id)}
+                        >
+                          <span style={{ width: "100%", textAlign: "center" }}>Penalize</span>
+                        </button>
+                        <button
+                          className="decline-btn"
+                          style={{
+                            ...buttonStyle,
+                            background: "#cf1322",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: 6,
+                            cursor: "pointer"
+                          }}
+                          onClick={() => onReject(report.user_id)}
+                        >
+                          <span style={{ width: "100%", textAlign: "center" }}>Reject</span>
+                        </button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>

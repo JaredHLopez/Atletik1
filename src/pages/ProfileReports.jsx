@@ -341,6 +341,39 @@ export default function ProfileReports() {
     }
   }, [reportType, fetchReports, reports]);
 
+  // Handle restore action
+  const handleRestore = useCallback(async (entityId) => {
+    try {
+      const reportObj = reports.find(r => r[TABLE_MAP[reportType].pk] === entityId);
+      if (!reportObj || !reportObj.reportIds || reportObj.reportIds.length === 0) {
+        setError("No reports found for this entity");
+        return;
+      }
+      const { table, entityTable, pk } = TABLE_MAP[reportType];
+
+      // 1. Restore report status to pending
+      const { error: reportError } = await supabase
+        .from(table)
+        .update({ approval_status: "pending" })
+        .in("report_id", reportObj.reportIds)
+        .in("approval_status", ["rejected", "penalized"]);
+      if (reportError) throw reportError;
+
+      // 2. Remove suspension from entity
+      const { error: entityError } = await supabase
+        .from(entityTable)
+        .update({ suspended_until: null })
+        .eq(pk, entityId);
+      if (entityError) throw entityError;
+
+      setError(null);
+      await fetchReports();
+    } catch (err) {
+      console.error("Error restoring report:", err);
+      setError("Failed to restore report");
+    }
+  }, [reportType, fetchReports, reports]);
+
   // Reset filters
   const handleResetFilters = () => {
     setReportType("user");
@@ -391,7 +424,8 @@ export default function ProfileReports() {
             <UserReportTable
               reports={reports}
               onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
-              onWaive={handleWaive}
+              onReject={handleWaive}
+              onRestore={handleRestore}
               buttonStyle={sharedButtonStyle}
             />
           </div>
@@ -402,7 +436,8 @@ export default function ProfileReports() {
             <ClubReportTable
               reports={reports}
               onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
-              onWaive={handleWaive}
+              onReject={handleWaive}
+              onRestore={handleRestore}
               buttonStyle={sharedButtonStyle}
             />
           </div>
@@ -413,7 +448,8 @@ export default function ProfileReports() {
             <OrganizerReportTable
               reports={reports}
               onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
-              onWaive={handleWaive}
+              onReject={handleWaive}
+              onRestore={handleRestore}
               buttonStyle={sharedButtonStyle}
             />
           </div>
@@ -424,7 +460,8 @@ export default function ProfileReports() {
             <TeamReportTable
               reports={reports}
               onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
-              onWaive={handleWaive}
+              onReject={handleWaive}
+              onRestore={handleRestore}
               buttonStyle={sharedButtonStyle}
             />
           </div>
