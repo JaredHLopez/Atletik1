@@ -35,21 +35,21 @@ const TABLE_MAP = {
   user: {
     table: "user_reports",
     id: "reported_id",
-    join: "users:reported_id(user_id, username, intro, bio, suspended_until)",
+    join: "users:reported_id(user_id, username, intro, bio, profile_image, background_image, suspended_until)",
     entityTable: "users",
     pk: "user_id"
   },
   club: {
     table: "club_reports",
     id: "reported_id",
-    join: "clubs:reported_id(club_id, club_name, sports, street_address, barangay, city, province, suspended_until)",
+    join: "clubs:reported_id(club_id, club_name, sports, street_address, barangay, city, province, profile_image, background_image, suspended_until)",
     entityTable: "clubs",
     pk: "club_id"
   },
   organizer: {
     table: "organizer_reports",
     id: "reported_id",
-    join: "organizers:reported_id(user_id, username, suffix, intro, bio, suspended_until)",
+    join: "organizers:reported_id(user_id, username, suffix, intro, bio, profile_image, background_image, suspended_until)",
     entityTable: "organizers",
     pk: "user_id"
   },

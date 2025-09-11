@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { FaChevronDown, FaChevronUp } from "react-icons/fa";
 import ProfileReports from "./ProfileReports";
 import PostReport from "./PostReport";
+import ClubApplicationTable from "./ClubApplicationTable";
+import OrganizerApplicationTable from "./OrganizerApplicationTable";
 import "./admin.css";
 
 function Dashboard() {
@@ -11,8 +13,14 @@ function Dashboard() {
   const [adminEmail, setAdminEmail] = useState("");
   const [selectedTable, setSelectedTable] = useState("");
   const [adminData, setAdminData] = useState([]);
-  const [clubAppData, setClubAppData] = useState([]);
   const [reportsDropdownOpen, setReportsDropdownOpen] = useState(false);
+  const [applicationsDropdownOpen, setApplicationsDropdownOpen] = useState(false);
+
+  const buttonStyle = {
+    minWidth: 90,
+    padding: "8px 0",
+    fontSize: "14px"
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -34,101 +42,15 @@ function Dashboard() {
     }
   };
 
-  const fetchClubAppData = async () => {
-    const { data, error } = await supabase.from("club_applications").select("*");
-    if (error) {
-      console.error("Club Applications fetch error:", error.message);
-    } else {
-      // Initialize status as 'pending' if not set
-      const dataWithStatus = data.map(item => ({
-        ...item,
-        status: item.status || 'pending'
-      }));
-      setClubAppData(dataWithStatus);
-    }
-  };
-
   const handleTableSelect = (tableName) => {
     setSelectedTable(tableName);
     if (tableName === "admin") fetchAdminData();
-    if (tableName === "club_applications") fetchClubAppData();
   };
 
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     navigate("/login");
-  };
-
-  const updateApplicationStatus = async (applicationId, newStatus) => {
-    console.log(`Application ID: ${applicationId}, Status: ${newStatus}`)
-    try {
-      const { data, error } = await supabase
-        .from('club_applications')
-        .update({ status: newStatus })
-        .eq('application_id', applicationId);
-      
-      if (error) throw error;
-      
-      // Update local state
-      setClubAppData(clubAppData.map(item => 
-        item.application_id === applicationId 
-          ? { ...item, status: newStatus } 
-          : item
-      ));
-      
-    } catch (error) {
-      console.error('Error updating status:', error.message);
-    }
-  };
-
-  // Helper function to get status color
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'accepted':
-        return 'status-accepted';
-      case 'rejected':
-        return 'status-declined';
-      default:
-        return 'status-pending';
-    }
-  };
-
-  // Function to get image URL (handles both direct URLs and Supabase storage paths)
-  const getImageUrl = (path) => {
-    if (!path) {
-      console.warn("getImageUrl: Path is null or empty.");
-      return null;
-    }
-    if (path.startsWith('http')) {
-      return path; // Already a full URL
-    }
-
-    // --- IMPORTANT: Replace 'your-bucket-name' with your actual Supabase bucket name ---
-    const BUCKET_NAME = 'club-documents';
-
-    try {
-      const { data, error } = supabase
-        .storage
-        .from(BUCKET_NAME)
-        .getPublicUrl(path);
-
-      if (error) {
-        console.error(`Error getting public URL for path '${path}' from bucket '${BUCKET_NAME}':`, error.message);
-        // You might want to return a placeholder image URL or null in case of error
-        return null;
-      }
-
-      if (data && data.publicUrl) {
-        return data.publicUrl;
-      } else {
-        console.warn(`getImageUrl: No public URL returned for path '${path}' from bucket '${BUCKET_NAME}'.`);
-        return null;
-      }
-    } catch (e) {
-      console.error(`Unexpected error in getImageUrl for path '${path}':`, e);
-      return null;
-    }
   };
 
   return (
@@ -139,9 +61,36 @@ function Dashboard() {
         <button className="sidebar-btn" onClick={() => handleTableSelect("admin")}>
           Admin Table
         </button>
-        <button className="sidebar-btn" onClick={() => handleTableSelect("club_applications")}>
-          View Club Application
-        </button>
+        
+        {/* Applications Dropdown */}
+        <div className="sidebar-dropdown">
+          <button
+            className="sidebar-btn"
+            onClick={() => setApplicationsDropdownOpen((open) => !open)}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+          >
+            Applications
+            {applicationsDropdownOpen ? <FaChevronUp /> : <FaChevronDown />}
+          </button>
+          {applicationsDropdownOpen && (
+            <div className="dropdown-content">
+              <button
+                className="sidebar-btn dropdown-btn"
+                onClick={() => handleTableSelect("club_applications")}
+              >
+                Club
+              </button>
+              <button
+                className="sidebar-btn dropdown-btn"
+                onClick={() => handleTableSelect("organizer_applications")}
+              >
+                Organizer
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Reports Dropdown */}
         <div className="sidebar-dropdown">
           <button
             className="sidebar-btn"
@@ -168,6 +117,7 @@ function Dashboard() {
             </div>
           )}
         </div>
+        
         <button className="sign-out-btn" onClick={signOut}>
           Sign Out
         </button>
@@ -207,6 +157,22 @@ function Dashboard() {
             </div>
           )}
 
+          {/* Club Applications */}
+          {selectedTable === "club_applications" && (
+            <div className="table-container">
+              <h2>Club Applications</h2>
+              <ClubApplicationTable buttonStyle={buttonStyle} />      
+            </div>
+          )}
+
+          {/* Organizer Applications */}
+          {selectedTable === "organizer_applications" && (
+            <div className="table-container">
+              <h2>Organizer Applications</h2>
+              <OrganizerApplicationTable buttonStyle={buttonStyle} />      
+            </div>
+          )}
+
           {/* Profile Reports Table */}
           {selectedTable === "profile_reports" && (
             <div className="table-container">
@@ -218,84 +184,6 @@ function Dashboard() {
           {selectedTable === "post_reports" && (
             <div className="table-container">
               <PostReport />      
-            </div>
-          )}
-
-          {/* Club Applications Table */}
-          {selectedTable === "club_applications" && (
-            <div className="table-container">
-              <h2>Club Applications</h2>
-              <table className="request-table">
-                <thead>
-                  <tr>
-                    <th>Application ID</th>
-                    <th>Name</th>
-                    <th>Establishment</th>
-                    <th>BIR Registration</th>
-                    <th>Business Permit</th>
-                    <th>Created Date</th>
-                    <th>Filer ID</th>
-                    <th>Location</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clubAppData.map((item) => (
-                    <tr key={item.application_id}>
-                      <td>{item.application_id}</td>
-                      <td>{item.name}</td>
-                      <td>{item.establishment}</td>
-                      <td>
-                        {item.bir_registration && (
-                          <img 
-                            src={getImageUrl(item.bir_registration)} 
-                            alt="BIR Registration" 
-                            className="document-image"
-                            onClick={() => window.open(getImageUrl(item.bir_registration), '_blank')}
-                          />
-                        )}
-                      </td>
-                      <td>
-                        {item.business_permit && (
-                          <img 
-                            src={getImageUrl(item.business_permit)} 
-                            alt="Business Permit" 
-                            className="document-image"
-                            onClick={() => window.open(getImageUrl(item.business_permit), '_blank')}
-                          />
-                        )}
-                      </td>
-                      <td>{item.created_at?.slice(0, 10)}</td>
-                      <td>{item.filer_id}</td>
-                      <td>{item.location}</td>
-                      <td>
-                        <span className={`status-badge ${getStatusColor(item.status)}`}>
-                          {item.status}
-                        </span>
-                      </td>
-                      <td className="action-buttons">
-                        {item.status === "pending" && (
-                          <>
-                            <button 
-                              className="accept-btn"
-                              onClick={() => updateApplicationStatus(item.application_id, 'accepted')}
-                            >
-                              Accept
-                            </button>
-                            <button 
-                              className="decline-btn"
-                              onClick={() => updateApplicationStatus(item.application_id, 'rejected')}
-                            >
-                              Decline
-                            </button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           )}
         </div>
