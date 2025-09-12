@@ -131,6 +131,78 @@ function DropdownButton({
   );
 }
 
+// Image Modal Component
+function ImageModal({ imageUrl, onClose }) {
+  if (!imageUrl) return null;
+
+  return (
+    <div 
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100vh",
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 2000,
+        padding: "20px"
+      }}
+      onClick={onClose}
+    >
+      <div 
+        style={{
+          position: "relative",
+          maxWidth: "90vw",
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center"
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: "-40px",
+            right: "0px",
+            backgroundColor: "rgba(255, 255, 255, 0.9)",
+            border: "none",
+            borderRadius: "50%",
+            width: "35px",
+            height: "35px",
+            fontSize: "18px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2001
+          }}
+        >
+          ×
+        </button>
+        <img
+          src={imageUrl}
+          alt="Enlarged view"
+          style={{
+            maxWidth: "100%",
+            maxHeight: "100%",
+            objectFit: "contain",
+            borderRadius: "8px",
+            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)"
+          }}
+          onError={(e) => {
+            e.target.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIxIDEyQzIxIDEyLjc0IDIwLjc5IDEzLjQxIDIwLjQxIDEzLjk5TDE4IDExLjU4VjhIMTQuOTJMMTMuNjYgNi43NEMxMy4yNiA2LjM0IDEyLjc0IDYuMTQgMTIuMjEgNi4xNEgxMC43OUM5Ljc5IDYuMTQgOSA2LjkzIDkgNy45M1YxNi4wN0M5IDE3LjA3IDkuNzkgMTcuODYgMTAuNzkgMTcuODZIMTYuMjFDMTcuMjEgMTcuODYgMTggMTcuMDcgMTggMTYuMDdWMTUuNDJMMjAuNDEgMTcuODNDMjAuNzkgMTguNDEgMjEgMTkuMjYgMjEgMTlWMTJaTTMgNUwxMC41OSAxMi41OSAxNiAxN0wxOS41IDE2LjVMMjEgMThWMTlDMjEgMTkuNTUgMjAuNTUgMjAgMjAgMjBIM0MzLjQ1IDIwIDMgMTkuNTUgMyAxOVY2QzMgNS40NSAzLjQ1IDUgNCA1SDNaIiBmaWxsPSIjOTk5Ii8+Cjwvc3ZnPgo=";
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // Main component
 export default function PostReport() {
   // State (unchanged)
@@ -147,6 +219,12 @@ export default function PostReport() {
     postId: null, 
     action: "",
     reportType: null
+  });
+
+  // Add image modal state
+  const [imageModal, setImageModal] = useState({
+    open: false,
+    imageUrl: null
   });
 
   // Dropdown states (unchanged)
@@ -193,7 +271,26 @@ export default function PostReport() {
     return await query;
   };
 
-  // Fetch reports function - FIXED with better error handling
+  // Helper function to get full image URL
+  const getImageUrl = (imagePath) => {
+    if (!imagePath || imagePath === "no image") return null;
+    
+    // If it's already a full URL, return as is
+    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      return imagePath;
+    }
+    
+    // If it's a Supabase storage path, construct the full URL
+    // Adjust this based on your Supabase storage configuration
+    if (imagePath.startsWith('tournament-posters/')) {
+      return `${supabase.storage.from('tournament-posters').getPublicUrl(imagePath).data.publicUrl}`;
+    }
+    
+    // Default fallback - might need adjustment based on your setup
+    return imagePath;
+  };
+
+  // Fetch reports function - UPDATED to get title from posts
   const fetchReports = useCallback(async () => {
     try {
       setLoading(true);
@@ -225,73 +322,59 @@ export default function PostReport() {
           if (practiceError) {
             console.error("Error fetching practice reports:", practiceError);
           } else if (practiceData && practiceData.length > 0) {
-            // Fetch related data separately with safe queries
-            const postIds = practiceData.map(report => report.reported_id).filter(Boolean);
-            const reporterIds = practiceData.map(report => report.flagger_id).filter(Boolean);
+            // Get all practice post IDs from reports
+            const practicePostIds = practiceData.map(report => report.reported_id).filter(Boolean);
             
-            let postsData = [];
-            let reportersData = [];
-
-            // Fetch practice posts
-            if (postIds.length > 0) {
-              const { data: posts, error: postsError } = await safeQueryByIds(
+            // Fetch practice posts data - UPDATED to include title
+            let practicePostsData = [];
+            if (practicePostIds.length > 0) {
+              const { data: practicePosts, error: practicePostsError } = await safeQueryByIds(
                 "practice_posts", 
-                "*", 
-                postIds
+                "practice_id, title, caption, host_name", // Added title column
+                practicePostIds,
+                "practice_id"
               );
               
-              if (!postsError && posts && posts.length > 0) {
-                // Get unique user IDs from posts
-                const postUserIds = posts.map(post => post.user_id).filter(Boolean);
-                
-                if (postUserIds.length > 0) {
-                  const { data: postUsers, error: postUsersError } = await safeQueryByIds(
-                    "users", 
-                    "*", 
-                    postUserIds
-                  );
-                  
-                  if (!postUsersError) {
-                    // Manually join users to posts
-                    postsData = posts.map(post => ({
-                      ...post,
-                      users: postUsers?.find(user => user.id === post.user_id) || null
-                    }));
-                  } else {
-                    console.error("Error fetching post users:", postUsersError);
-                    postsData = posts;
-                  }
-                } else {
-                  postsData = posts;
-                }
-              } else if (postsError) {
-                console.error("Error fetching practice posts:", postsError);
+              if (!practicePostsError && practicePosts) {
+                practicePostsData = practicePosts;
+              } else {
+                console.error("Error fetching practice posts:", practicePostsError);
               }
             }
 
-            // Fetch reporters
+            // Fetch reporter data
+            const reporterIds = practiceData.map(report => report.flagger_id).filter(Boolean);
+            let reportersData = [];
+            
             if (reporterIds.length > 0) {
               const { data: reporters, error: reportersError } = await safeQueryByIds(
                 "users", 
-                "*", 
+                "id, name, username, email", 
                 reporterIds
               );
               
-              if (!reportersError) {
-                reportersData = reporters || [];
+              if (!reportersError && reporters) {
+                reportersData = reporters;
               } else {
                 console.error("Error fetching reporters:", reportersError);
               }
             }
 
-            // Manually join the data
+            // Combine report data with post and reporter data
             practiceReports = practiceData.map(report => {
-              const post = postsData.find(p => p.id === report.reported_id);
+              const post = practicePostsData.find(p => p.practice_id === report.reported_id);
               const reporter = reportersData.find(u => u.id === report.flagger_id);
               
               return {
                 ...report,
-                post: post || null,
+                post: post ? {
+                  id: post.practice_id,
+                  title: post.title || `Practice Post ${post.practice_id}`, // Use title from DB
+                  content: post.caption,
+                  author: post.host_name,
+                  image: "no image", // As requested for practice posts
+                  type: "practice"
+                } : null,
                 reporter: reporter || null,
                 reportType: "practice"
               };
@@ -322,73 +405,59 @@ export default function PostReport() {
           if (tournamentError) {
             console.error("Error fetching tournament reports:", tournamentError);
           } else if (tournamentData && tournamentData.length > 0) {
-            // Fetch related data separately with safe queries
-            const postIds = tournamentData.map(report => report.reported_id).filter(Boolean);
-            const reporterIds = tournamentData.map(report => report.flagger_id).filter(Boolean);
+            // Get all tournament post IDs from reports
+            const tournamentPostIds = tournamentData.map(report => report.reported_id).filter(Boolean);
             
-            let postsData = [];
-            let reportersData = [];
-
-            // Fetch tournament posts
-            if (postIds.length > 0) {
-              const { data: posts, error: postsError } = await safeQueryByIds(
+            // Fetch tournament posts data - UPDATED to include title
+            let tournamentPostsData = [];
+            if (tournamentPostIds.length > 0) {
+              const { data: tournamentPosts, error: tournamentPostsError } = await safeQueryByIds(
                 "tournament_posts", 
-                "*", 
-                postIds
+                "tournament_id, title, caption, poster_image, host_name", // Added title column
+                tournamentPostIds,
+                "tournament_id"
               );
               
-              if (!postsError && posts && posts.length > 0) {
-                // Get unique user IDs from posts
-                const postUserIds = posts.map(post => post.user_id).filter(Boolean);
-                
-                if (postUserIds.length > 0) {
-                  const { data: postUsers, error: postUsersError } = await safeQueryByIds(
-                    "users", 
-                    "*", 
-                    postUserIds
-                  );
-                  
-                  if (!postUsersError) {
-                    // Manually join users to posts
-                    postsData = posts.map(post => ({
-                      ...post,
-                      users: postUsers?.find(user => user.id === post.user_id) || null
-                    }));
-                  } else {
-                    console.error("Error fetching post users:", postUsersError);
-                    postsData = posts;
-                  }
-                } else {
-                  postsData = posts;
-                }
-              } else if (postsError) {
-                console.error("Error fetching tournament posts:", postsError);
+              if (!tournamentPostsError && tournamentPosts) {
+                tournamentPostsData = tournamentPosts;
+              } else {
+                console.error("Error fetching tournament posts:", tournamentPostsError);
               }
             }
 
-            // Fetch reporters
+            // Fetch reporter data
+            const reporterIds = tournamentData.map(report => report.flagger_id).filter(Boolean);
+            let reportersData = [];
+            
             if (reporterIds.length > 0) {
               const { data: reporters, error: reportersError } = await safeQueryByIds(
                 "users", 
-                "*", 
+                "id, name, username, email", 
                 reporterIds
               );
               
-              if (!reportersError) {
-                reportersData = reporters || [];
+              if (!reportersError && reporters) {
+                reportersData = reporters;
               } else {
                 console.error("Error fetching reporters:", reportersError);
               }
             }
 
-            // Manually join the data
+            // Combine report data with post and reporter data
             tournamentReports = tournamentData.map(report => {
-              const post = postsData.find(p => p.id === report.reported_id);
+              const post = tournamentPostsData.find(p => p.tournament_id === report.reported_id);
               const reporter = reportersData.find(u => u.id === report.flagger_id);
               
               return {
                 ...report,
-                post: post || null,
+                post: post ? {
+                  id: post.tournament_id,
+                  title: post.title || `Tournament Post ${post.tournament_id}`, // Use title from DB
+                  content: post.caption,
+                  author: post.host_name,
+                  image: post.poster_image, // This should contain the image URL/path
+                  type: "tournament"
+                } : null,
                 reporter: reporter || null,
                 reportType: "tournament"
               };
@@ -402,17 +471,14 @@ export default function PostReport() {
       // Combine reports
       const allReports = [...practiceReports, ...tournamentReports];
 
-      // Filter out reports without posts (optional - you might want to keep them for debugging)
-      const filteredReports = allReports; // Changed to keep all reports for debugging
-
       // Sort
       if (sortBy === "recent") {
-        filteredReports.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        allReports.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       } else if (sortBy === "oldest") {
-        filteredReports.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        allReports.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
       }
 
-      setReports(filteredReports);
+      setReports(allReports);
 
     } catch (err) {
       console.error("Error fetching post reports:", err);
@@ -452,11 +518,12 @@ export default function PostReport() {
   const handlePostVisibility = useCallback(async (postId, hide, postType) => {
     try {
       const tableName = postType === "practice" ? "practice_posts" : "tournament_posts";
+      const idColumn = postType === "practice" ? "practice_id" : "tournament_id";
       
       const { error } = await supabase
         .from(tableName)
         .update({ is_hidden: hide })
-        .eq("id", postId);
+        .eq(idColumn, postId);
 
       if (error) throw error;
       
@@ -472,11 +539,12 @@ export default function PostReport() {
   const handleDeletePost = useCallback(async (postId, postType) => {
     try {
       const tableName = postType === "practice" ? "practice_posts" : "tournament_posts";
+      const idColumn = postType === "practice" ? "practice_id" : "tournament_id";
       
       const { error } = await supabase
         .from(tableName)
         .delete()
-        .eq("id", postId);
+        .eq(idColumn, postId);
 
       if (error) throw error;
       
@@ -492,6 +560,19 @@ export default function PostReport() {
   // Close modal (unchanged)
   const closeActionModal = useCallback(() => {
     setActionModal({ open: false, reportId: null, postId: null, action: "", reportType: null });
+  }, []);
+
+  // Handle image click
+  const handleImageClick = useCallback((imageUrl) => {
+    const fullImageUrl = getImageUrl(imageUrl);
+    if (fullImageUrl) {
+      setImageModal({ open: true, imageUrl: fullImageUrl });
+    }
+  }, []);
+
+  // Close image modal
+  const closeImageModal = useCallback(() => {
+    setImageModal({ open: false, imageUrl: null });
   }, []);
 
   // Effects (unchanged)
@@ -523,10 +604,12 @@ export default function PostReport() {
     }
   }, [typeDropdownOpen, sortDropdownOpen, timeDropdownOpen, statusDropdownOpen]);
 
-  // Add debug logging
-  useEffect(() => {
-    console.log("Reports data:", reports);
-  }, [reports]);
+  // Helper function to truncate text
+  const truncateText = (text, maxLength = 100) => {
+    if (!text) return "No content";
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + "...";
+  };
 
   return (
     <div style={{ minHeight: "500px", padding: "20px", fontFamily: "Arial, sans-serif" }}>
@@ -625,25 +708,27 @@ export default function PostReport() {
         </div>
       )}
 
-      {/* Reports Table */}
+      {/* Reports Table - ENHANCED with better image handling */}
       {loading ? (
         <p>Loading post reports...</p>
       ) : reports.length === 0 ? (
         <p>No post reports found.</p>
-  ) : (
-        // Detailed View
+      ) : (
+        // Detailed View with Post Content Column
         <div style={{ overflowX: "auto" }}>
           <table style={{ 
             width: "100%", 
             borderCollapse: "collapse",
             border: "1px solid #ddd",
-            minWidth: "800px"
+            minWidth: "1200px" // Increased for additional column
           }}>
             <thead>
               <tr style={{ backgroundColor: "#f5f5f5" }}>
                 <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Report ID</th>
                 <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Post Type</th>
                 <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Post Title</th>
+                <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd", minWidth: "200px" }}>Post</th>
+                <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Post Image</th>
                 <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Post Author</th>
                 <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Reporter</th>
                 <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Reasons</th>
@@ -653,156 +738,311 @@ export default function PostReport() {
               </tr>
             </thead>
             <tbody>
-              {reports.map((report) => (
-                <tr key={report.report_id} style={{ borderBottom: "1px solid #ddd" }}>
-                  <td style={{ padding: "12px", border: "1px solid #ddd", fontSize: "12px" }}>
-                    {report.report_id?.substring(0, 8)}...
-                  </td>
-                  <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                    <span style={{
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      fontSize: "12px",
-                      fontWeight: "bold",
-                      backgroundColor: report.reportType === "tournament" ? "#e9ecef" : "#f8f9fa",
-                      color: "#495057",
-                      textTransform: "capitalize"
-                    }}>
-                      {report.reportType}
-                    </span>
-                  </td>
-                  <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                    {report.post?.title || "Unknown Post"}
-                    {report.post?.is_hidden && (
-                      <span style={{ color: "#dc3545", marginLeft: "8px", fontSize: "12px" }}>
-                        (Hidden)
+              {reports.map((report) => {
+                
+                return (
+                  <tr key={report.report_id} style={{ borderBottom: "1px solid #ddd" }}>
+                    <td style={{ padding: "12px", border: "1px solid #ddd", fontSize: "12px" }}>
+                      {report.report_id?.substring(0, 8)}...
+                    </td>
+                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                      <span style={{
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                        backgroundColor: report.reportType === "tournament" ? "#e9ecef" : "#f8f9fa",
+                        color: "#495057",
+                        textTransform: "capitalize"
+                      }}>
+                        {report.reportType}
                       </span>
-                    )}
-                    {!report.post && (
-                      <span style={{ color: "#dc3545", fontSize: "12px" }}>
-                        (Post not found)
-                      </span>
-                    )}
-                  </td>
-                  <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                    {report.post?.users?.name || report.post?.users?.username || "Unknown"}
-                    <br />
-                    <small style={{ color: "#666" }}>{report.post?.users?.email}</small>
-                  </td>
-                  <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                    {report.reporter?.name || report.reporter?.username || "Unknown"}
-                    <br />
-                    <small style={{ color: "#666" }}>{report.reporter?.email}</small>
-                  </td>
-                  <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                    <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px" }}>
-                      {report.reason && report.reason.map((reason, idx) => (
-                        <li key={idx}>{reason}</li>
-                      ))}
-                    </ul>
-                  </td>
-                  <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                    <span style={{
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      fontSize: "12px",
-                      fontWeight: "bold",
-                      backgroundColor: 
-                        report.approval_status === "approved" ? "#d4edda" :
-                        report.approval_status === "rejected" ? "#f8d7da" :
-                        "#fff3cd",
-                      color: 
-                        report.approval_status === "approved" ? "#155724" :
-                        report.approval_status === "rejected" ? "#721c24" :
-                        "#856404"
+                    </td>
+                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                      {report.post?.title || "Unknown Post"}
+                      {report.post?.is_hidden && (
+                        <span style={{ color: "#dc3545", marginLeft: "8px", fontSize: "12px" }}>
+                          (Hidden)
+                        </span>
+                      )}
+                      {!report.post && (
+                        <span style={{ color: "#dc3545", fontSize: "12px" }}>
+                          (Post not found)
+                        </span>
+                      )}
+                    </td>
+                    {/* POST CONTENT COLUMN */}
+                    <td style={{ 
+                      padding: "12px", 
+                      border: "1px solid #ddd", 
+                      maxWidth: "200px",
+                      fontSize: "14px",
+                      lineHeight: "1.4"
                     }}>
-                      {report.approval_status}
-                    </span>
-                  </td>
-                  <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                    {new Date(report.created_at).toLocaleString()}
-                  </td>
-                  <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                      {report.approval_status === "pending" && (
-                        <>
-                          <button 
-                            style={{ 
-                              padding: "6px 12px", 
-                              backgroundColor: "#28a745", 
-                              color: "white", 
-                              border: "none", 
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                              fontSize: "12px"
-                            }}
-                            onClick={() => handleReportAction(report.report_id, "approved", report.reportType)}
-                          >
-                            Approve
-                          </button>
-                          <button 
-                            style={{ 
-                              padding: "6px 12px", 
-                              backgroundColor: "#dc3545", 
-                              color: "white", 
-                              border: "none", 
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                              fontSize: "12px"
-                            }}
-                            onClick={() => handleReportAction(report.report_id, "rejected", report.reportType)}
-                          >
-                            Reject
-                          </button>
-                        </>
+                      <div style={{
+                        maxHeight: "80px",
+                        overflowY: "auto",
+                        color: "#333"
+                      }}>
+                        {truncateText(report.post?.content)}
+                      </div>
+                      {report.post?.content && report.post.content.length > 100 && (
+                        <button
+                          style={{
+                            marginTop: "4px",
+                            padding: "2px 6px",
+                            fontSize: "10px",
+                            backgroundColor: "#007bff",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "2px",
+                            cursor: "pointer"
+                          }}
+                          onClick={() => {
+                            alert(report.post.content); // Simple modal - you can replace with a proper modal
+                          }}
+                        >
+                          View Full
+                        </button>
                       )}
-                      
-                      {report.post && (
-                        <>
-                          <button 
-                            style={{ 
-                              padding: "6px 12px", 
-                              backgroundColor: report.post.is_hidden ? "#17a2b8" : "#ffc107", 
-                              color: "white", 
-                              border: "none", 
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                              fontSize: "12px"
-                            }}
-                            onClick={() => handlePostVisibility(report.post.id, !report.post.is_hidden, report.reportType)}
-                          >
-                            {report.post.is_hidden ? "Unhide Post" : "Hide Post"}
-                          </button>
-                          
-                          <button 
-                            style={{ 
-                              padding: "6px 12px", 
-                              backgroundColor: "#dc3545", 
-                              color: "white", 
-                              border: "none", 
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                              fontSize: "12px"
-                            }}
-                            onClick={() => setActionModal({ 
-                              open: true, 
-                              reportId: report.report_id, 
-                              postId: report.post.id, 
-                              action: "delete",
-                              reportType: report.reportType
-                            })}
-                          >
-                            Delete Post
-                          </button>
-                        </>
+                    </td>
+                    {/* ENHANCED POST IMAGE COLUMN */}
+                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                      {report.reportType === "practice" ? (
+                        // Always show "No Image" for practice reports
+                        <div style={{
+                          width: "80px",
+                          height: "80px",
+                          backgroundColor: "#f8f9fa",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "12px",
+                          color: "#666",
+                          borderRadius: "6px",
+                          border: "2px solid #e9ecef",
+                          flexDirection: "column",
+                          textAlign: "center"
+                        }}>
+                          <div>📷</div>
+                          <div>No Image</div>
+                        </div>
+                      ) : (
+                        // For tournament reports, try to show the image
+                        (() => {
+                          const imageUrl = getImageUrl(report.post?.image);
+                          return imageUrl && report.post?.image !== "no image" ? (
+                            <div style={{ position: "relative" }}>
+                              <img 
+                                src={imageUrl} 
+                                alt="Tournament poster"
+                                style={{ 
+                                  width: "80px", 
+                                  height: "80px", 
+                                  objectFit: "cover", 
+                                  borderRadius: "6px",
+                                  cursor: "pointer",
+                                  transition: "transform 0.2s ease",
+                                  border: "2px solid #e9ecef"
+                                }}
+                                onClick={() => handleImageClick(report.post?.image)}
+                                onMouseOver={(e) => {
+                                  e.target.style.transform = "scale(1.05)";
+                                }}
+                                onMouseOut={(e) => {
+                                  e.target.style.transform = "scale(1)";
+                                }}
+                                onError={(e) => {
+                                  e.target.style.display = "none";
+                                  e.target.nextSibling.style.display = "flex";
+                                }}
+                              />
+                              {/* Fallback div that shows when image fails to load */}
+                              <div style={{
+                                width: "80px",
+                                height: "80px",
+                                backgroundColor: "#f8f9fa",
+                                display: "none",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: "10px",
+                                color: "red",
+                                borderRadius: "6px",
+                                border: "2px solid #e9ecef",
+                                flexDirection: "column",
+                                textAlign: "center"
+                              }}>
+                                <div>❌</div>
+                                <div>Failed to load</div>
+                              </div>
+                              {/* Zoom indicator */}
+                              <div style={{
+                                position: "absolute",
+                                top: "4px",
+                                right: "4px",
+                                backgroundColor: "rgba(0, 0, 0, 0.6)",
+                                color: "white",
+                                borderRadius: "50%",
+                                width: "20px",
+                                height: "20px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                fontSize: "10px",
+                                opacity: 0.8
+                              }}>
+                                🔍
+                              </div>
+                            </div>
+                          ) : (
+                            // Show "No Image" for tournament reports without images
+                            <div style={{
+                              width: "80px",
+                              height: "80px",
+                              backgroundColor: "#f8f9fa",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "12px",
+                              color: "#666",
+                              borderRadius: "6px",
+                              border: "2px solid #e9ecef",
+                              flexDirection: "column",
+                              textAlign: "center"
+                            }}>
+                              <div>📷</div>
+                              <div>No Image</div>
+                            </div>
+                          );
+                        })()
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                      {report.post?.author || "Unknown"}
+                    </td>
+                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                      {report.reporter?.name || report.reporter?.username || "Unknown"}
+                      <br />
+                      <small style={{ color: "#666" }}>{report.reporter?.email}</small>
+                    </td>
+                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                      <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px" }}>
+                        {report.reason && report.reason.map((reason, idx) => (
+                          <li key={idx}>{reason}</li>
+                        ))}
+                      </ul>
+                    </td>
+                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                      <span style={{
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        fontSize: "12px",
+                        fontWeight: "bold",
+                        backgroundColor: 
+                          report.approval_status === "approved" ? "#d4edda" :
+                          report.approval_status === "rejected" ? "#f8d7da" :
+                          "#fff3cd",
+                        color: 
+                          report.approval_status === "approved" ? "#155724" :
+                          report.approval_status === "rejected" ? "#721c24" :
+                          "#856404"
+                      }}>
+                        {report.approval_status}
+                      </span>
+                    </td>
+                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                      {new Date(report.created_at).toLocaleString()}
+                    </td>
+                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        {report.approval_status === "pending" && (
+                          <>
+                            <button 
+                              style={{ 
+                                padding: "6px 12px", 
+                                backgroundColor: "#28a745", 
+                                color: "white", 
+                                border: "none", 
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "12px"
+                              }}
+                              onClick={() => handleReportAction(report.report_id, "approved", report.reportType)}
+                            >
+                              Approve
+                            </button>
+                            <button 
+                              style={{ 
+                                padding: "6px 12px", 
+                                backgroundColor: "#dc3545", 
+                                color: "white", 
+                                border: "none", 
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "12px"
+                              }}
+                              onClick={() => handleReportAction(report.report_id, "rejected", report.reportType)}
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        
+                        {report.post && (
+                          <>
+                            <button 
+                              style={{ 
+                                padding: "6px 12px", 
+                                backgroundColor: report.post.is_hidden ? "#17a2b8" : "#ffc107", 
+                                color: "white", 
+                                border: "none", 
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "12px"
+                              }}
+                              onClick={() => handlePostVisibility(report.post.id, !report.post.is_hidden, report.reportType)}
+                            >
+                              {report.post.is_hidden ? "Unhide Post" : "Hide Post"}
+                            </button>
+                            
+                            <button 
+                              style={{ 
+                                padding: "6px 12px", 
+                                backgroundColor: "#dc3545", 
+                                color: "white", 
+                                border: "none", 
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                                fontSize: "12px"
+                              }}
+                              onClick={() => setActionModal({ 
+                                open: true, 
+                                reportId: report.report_id, 
+                                postId: report.post.id, 
+                                action: "delete",
+                                reportType: report.reportType
+                              })}
+                            >
+                              Delete Post
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Image Modal */}
+      {imageModal.open && (
+        <ImageModal 
+          imageUrl={imageModal.imageUrl} 
+          onClose={closeImageModal} 
+        />
       )}
 
       {/* Delete Confirmation Modal (unchanged) */}
