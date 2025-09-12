@@ -4,15 +4,15 @@ import { useNavigate } from "react-router-dom";
 import { FaChevronDown, FaChevronUp } from "react-icons/fa";
 import ProfileReports from "./ProfileReports";
 import PostReport from "./PostReport";
-import ClubApplicationTable from "./ClubApplicationTable";
-import OrganizerApplicationTable from "./OrganizerApplicationTable";
+import Applications from "./Applications";
+import AdminTable from "./AdminTable"; // Add this import
 import "./admin.css";
 
 function Dashboard() {
   const navigate = useNavigate();
   const [adminEmail, setAdminEmail] = useState("");
   const [selectedTable, setSelectedTable] = useState("");
-  const [adminData, setAdminData] = useState([]);
+  // Remove adminData state since it's now handled in AdminTable component
   const [reportsDropdownOpen, setReportsDropdownOpen] = useState(false);
   const [applicationsDropdownOpen, setApplicationsDropdownOpen] = useState(false);
 
@@ -33,18 +33,11 @@ function Dashboard() {
     fetchUser();
   }, []);
 
-  const fetchAdminData = async () => {
-    const { data, error } = await supabase.from("admin").select("*");
-    if (error) {
-      console.error("Admin fetch error:", error.message);
-    } else {
-      setAdminData(data);
-    }
-  };
+  // Remove fetchAdminData function since it's now in AdminTable component
 
   const handleTableSelect = (tableName) => {
     setSelectedTable(tableName);
-    if (tableName === "admin") fetchAdminData();
+    // Remove the fetchAdminData call since it's handled in AdminTable
   };
 
   const signOut = async () => {
@@ -132,44 +125,24 @@ function Dashboard() {
           <h1>Welcome to the Admin Dashboard</h1>
           <p>This is your control panel.</p>
 
-          {/* Admin Table */}
+          {/* Admin Table - Updated to use AdminTable component */}
           {selectedTable === "admin" && (
             <div className="table-container">
-              <h2>Admin Table</h2>
-              <table className="request-table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Email</th>
-                    <th>Password</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {adminData.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.id}</td>
-                      <td>{item.email}</td>
-                      <td>{item.password}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <AdminTable />
             </div>
           )}
 
           {/* Club Applications */}
           {selectedTable === "club_applications" && (
             <div className="table-container">
-              <h2>Club Applications</h2>
-              <ClubApplicationTable buttonStyle={buttonStyle} />      
+              <Applications initialType="club" />
             </div>
           )}
 
           {/* Organizer Applications */}
           {selectedTable === "organizer_applications" && (
             <div className="table-container">
-              <h2>Organizer Applications</h2>
-              <OrganizerApplicationTable buttonStyle={buttonStyle} />      
+              <Applications initialType="organizer" />
             </div>
           )}
 
