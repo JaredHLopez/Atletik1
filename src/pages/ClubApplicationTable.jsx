@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import supabase from "../helper/supabaseClient";
 import ImageModal from "../components/ImageModal";
 
@@ -21,290 +21,128 @@ function StatusBadge({ status }) {
   return <span style={style}>{status}</span>;
 }
 
-const TIME_FILTERS = [
-  { label: "Today", value: "today" },
-  { label: "This Week", value: "week" },
-  { label: "This Month", value: "month" },
-  { label: "All Time", value: "all" },
-];
-
-const STATUS_OPTIONS = [
-  { label: "Pending", value: "pending" },
-  { label: "Approved", value: "approved" },
-  { label: "Rejected", value: "rejected" },
-  { label: "All Status", value: "all" },
-];
-
-function DropdownButton({
-  label,
-  options,
-  selected,
-  open,
-  setOpen,
-  onSelect,
-  dropdownRef
+export default function ClubApplicationTable({ 
+  applications, 
+  onApprove, 
+  onReject, 
+  onRestore, 
+  buttonStyle, 
+  bucketName 
 }) {
-  const selectedOption = options.find(opt => opt.value === selected);
-
-  return (
-    <div style={{ position: "relative" }} ref={dropdownRef}>
-      <button
-        className="sidebar-btn"
-        style={{
-          backgroundColor: "var(--primary-color)",
-          color: "#fff",
-          minWidth: 120,
-          marginBottom: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-        onClick={() => setOpen(prev => !prev)}
-        type="button"
-        aria-expanded={open}
-        aria-haspopup="true"
-      >
-        {selectedOption?.label || label}
-        <span style={{ marginLeft: 8, fontSize: 12 }}>▼</span>
-      </button>
-      {open && (
-        <div
-          style={{
-            position: "absolute",
-            top: "110%",
-            left: 0,
-            background: "#fff",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-            borderRadius: 6,
-            zIndex: 10,
-            minWidth: 120,
-            padding: "4px 0",
-            display: "flex",
-            flexDirection: "column"
-          }}
-        >
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              className="sidebar-btn"
-              style={{
-                backgroundColor: selected === opt.value ? "var(--primary-color)" : "transparent",
-                color: selected === opt.value ? "#fff" : "var(--primary-color)",
-                borderRadius: 0,
-                width: "100%",
-                textAlign: "left",
-                marginBottom: 0,
-                padding: "10px 16px"
-              }}
-              onClick={() => {
-                onSelect(opt.value);
-                setOpen(false);
-              }}
-              type="button"
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default function ClubApplicationTable({ buttonStyle }) {
-  const [applications, setApplications] = useState([]);
-  const [filteredApplications, setFilteredApplications] = useState([]);
   const [modalImage, setModalImage] = useState({ isOpen: false, src: "", alt: "" });
-  const [timeFilter, setTimeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [imageUrls, setImageUrls] = useState({});
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedApplicationId, setSelectedApplicationId] = useState(null);
-  const [imageUrls, setImageUrls] = useState({});
 
-  // Dropdown states
-  const [timeDropdownOpen, setTimeDropdownOpen] = useState(false);
-  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
-
-  // Refs
-  const timeDropdownRef = useRef(null);
-  const statusDropdownRef = useRef(null);
-
-  useEffect(() => {
-    fetchApplications();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [applications, timeFilter, statusFilter]);
-
+  // Fetch image URLs exactly like UserReportTable does
   useEffect(() => {
     async function fetchImageUrls() {
+      console.log("=== FETCHING IMAGES ===");
+      console.log("Applications:", applications);
+      
       const urls = {};
       
-      for (const app of filteredApplications) {
+      for (const app of applications) {
+        console.log(`Processing application ID: ${app.club_application_id}`);
+        
         // BIR Registration image
         if (app.bir_registration_image && !app.bir_registration_image.startsWith('file://')) {
-          const { data } = supabase.storage.from('club-documents').getPublicUrl(app.bir_registration_image);
-          urls[`bir_${app.club_application_id}`] = data.publicUrl;
-          console.log('BIR URL:', data.publicUrl);
+          try {
+            const { data, error } = await supabase.storage
+              .from('club-documents')
+              .download(app.bir_registration_image);
+            
+            if (error) {
+              console.error('Error downloading BIR image:', error);
+            } else {
+              const url = URL.createObjectURL(data);
+              urls[`bir_${app.club_application_id}`] = url;
+              console.log(`BIR blob URL created: ${url}`);
+            }
+          } catch (error) {
+            console.error('Error getting BIR image:', error);
+          }
         }
-
+        
         // Business Permit image  
         if (app.business_permit_image && !app.business_permit_image.startsWith('file://')) {
-          const { data } = supabase.storage.from('club-documents').getPublicUrl(app.business_permit_image);
-          urls[`permit_${app.club_application_id}`] = data.publicUrl;
-          console.log('Permit URL:', data.publicUrl);
+          try {
+            const { data, error } = await supabase.storage
+              .from('club-documents')
+              .download(app.business_permit_image);
+            
+            if (error) {
+              console.error('Error downloading permit image:', error);
+            } else {
+              const url = URL.createObjectURL(data);
+              urls[`permit_${app.club_application_id}`] = url;
+              console.log(`Permit blob URL created: ${url}`);
+            }
+          } catch (error) {
+            console.error('Error getting permit image:', error);
+          }
         }
 
         // Owner Signature image
         if (app.owner_name_sig_image && !app.owner_name_sig_image.startsWith('file://')) {
-          const { data } = supabase.storage.from('club-documents').getPublicUrl(app.owner_name_sig_image);
-          urls[`sig_${app.club_application_id}`] = data.publicUrl;
-          console.log('Sig URL:', data.publicUrl);
+          try {
+            const { data, error } = await supabase.storage
+              .from('club-documents')
+              .download(app.owner_name_sig_image);
+            
+            if (error) {
+              console.error('Error downloading signature image:', error);
+            } else {
+              const url = URL.createObjectURL(data);
+              urls[`sig_${app.club_application_id}`] = url;
+              console.log(`Signature blob URL created: ${url}`);
+            }
+          } catch (error) {
+            console.error('Error getting signature image:', error);
+          }
         }
 
         // Owner ID Card image
         if (app.owner_id_card_image && !app.owner_id_card_image.startsWith('file://')) {
-          const { data } = supabase.storage.from('club-documents').getPublicUrl(app.owner_id_card_image);
-          urls[`id_${app.club_application_id}`] = data.publicUrl;
-          console.log('ID URL:', data.publicUrl);
+          try {
+            const { data, error } = await supabase.storage
+              .from('club-documents')
+              .download(app.owner_id_card_image);
+            
+            if (error) {
+              console.error('Error downloading ID card image:', error);
+            } else {
+              const url = URL.createObjectURL(data);
+              urls[`id_${app.club_application_id}`] = url;
+              console.log(`ID card blob URL created: ${url}`);
+            }
+          } catch (error) {
+            console.error('Error getting ID card image:', error);
+          }
         }
       }
       
-      console.log('All image URLs:', urls);
+      console.log("Final imageUrls object:", urls);
       setImageUrls(urls);
     }
     
-    if (filteredApplications.length > 0) {
+    if (applications.length > 0) {
       fetchImageUrls();
     }
-  }, [filteredApplications]);
+  }, [applications, bucketName]);
 
-  // Handle outside click for dropdowns
+  // Add cleanup to prevent memory leaks
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (timeDropdownRef.current && !timeDropdownRef.current.contains(event.target)) {
-        setTimeDropdownOpen(false);
-      }
-      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
-        setStatusDropdownOpen(false);
-      }
-    }
-    const hasOpenDropdown = timeDropdownOpen || statusDropdownOpen;
-    if (hasOpenDropdown) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [timeDropdownOpen, statusDropdownOpen]);
-
-  const fetchApplications = async () => {
-    const { data, error } = await supabase.from("club_applications").select("*");
-    if (error) {
-      console.error("Club Applications fetch error:", error.message);
-    } else {
-      const dataWithStatus = data.map(item => ({
-        ...item,
-        application_status: item.application_status || 'pending'
-      }));
-      setApplications(dataWithStatus);
-    }
-  };
-
-  const applyFilters = () => {
-    let filtered = [...applications];
-
-    // Apply time filter
-    if (timeFilter !== "all") {
-      const now = new Date();
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const startOfWeek = new Date(startOfToday);
-      startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-      filtered = filtered.filter(app => {
-        const appDate = new Date(app.created_at);
-        switch (timeFilter) {
-          case "today":
-            return appDate >= startOfToday;
-          case "week":
-            return appDate >= startOfWeek;
-          case "month":
-            return appDate >= startOfMonth;
-          default:
-            return true;
+    return () => {
+      // Cleanup blob URLs when component unmounts
+      Object.values(imageUrls).forEach(url => {
+        if (url && url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
         }
       });
-    }
-
-    // Apply status filter
-    if (statusFilter !== "all") {
-      filtered = filtered.filter(app => app.application_status === statusFilter);
-    }
-
-    setFilteredApplications(filtered);
-  };
-
-  const updateApplicationStatus = async (applicationId, newStatus, reason = null) => {
-    try {
-      const updateData = { application_status: newStatus };
-      if (reason) {
-        updateData.rejection_reason = reason;
-      }
-
-      const { error } = await supabase
-        .from('club_applications')
-        .update(updateData)
-        .eq('club_application_id', applicationId);
-      
-      if (error) throw error;
-      
-      // Update the applications state
-      const updatedApplications = applications.map(item => 
-        item.club_application_id === applicationId 
-          ? { ...item, application_status: newStatus, rejection_reason: reason || item.rejection_reason } 
-          : item
-      );
-      
-      setApplications(updatedApplications);
-      
-      // Force re-apply filters to update filteredApplications
-      const filtered = updatedApplications.filter(app => {
-        // Apply time filter
-        let passesTimeFilter = true;
-        if (timeFilter !== "all") {
-          const now = new Date();
-          const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          const startOfWeek = new Date(startOfToday);
-          startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-          const appDate = new Date(app.created_at);
-          switch (timeFilter) {
-            case "today":
-              passesTimeFilter = appDate >= startOfToday;
-              break;
-            case "week":
-              passesTimeFilter = appDate >= startOfWeek;
-              break;
-            case "month":
-              passesTimeFilter = appDate >= startOfMonth;
-              break;
-          }
-        }
-
-        // Apply status filter
-        const passesStatusFilter = statusFilter === "all" || app.application_status === statusFilter;
-        
-        return passesTimeFilter && passesStatusFilter;
-      });
-
-      setFilteredApplications(filtered);
-      
-    } catch (error) {
-      console.error('Error updating status:', error.message);
-    }
-  };
+    };
+  }, [imageUrls]);
 
   const handleReject = (applicationId) => {
     setSelectedApplicationId(applicationId);
@@ -313,16 +151,11 @@ export default function ClubApplicationTable({ buttonStyle }) {
 
   const confirmReject = () => {
     if (rejectionReason.trim()) {
-      updateApplicationStatus(selectedApplicationId, 'rejected', rejectionReason.trim());
+      onReject(selectedApplicationId, rejectionReason.trim());
       setShowRejectModal(false);
       setRejectionReason("");
       setSelectedApplicationId(null);
     }
-  };
-
-  const resetFilters = () => {
-    setTimeFilter("all");
-    setStatusFilter("all");
   };
 
   const openImageModal = (src, alt) => {
@@ -333,76 +166,8 @@ export default function ClubApplicationTable({ buttonStyle }) {
     setModalImage({ isOpen: false, src: "", alt: "" });
   };
 
-  useEffect(() => {
-    if (applications.length > 0) {
-      console.log('Sample application data:', applications[0]);
-      console.log('BIR image path:', applications[0]?.bir_registration_image);
-      console.log('Business permit path:', applications[0]?.business_permit_image);
-      console.log('Owner sig path:', applications[0]?.owner_name_sig_image);
-      console.log('Owner ID path:', applications[0]?.owner_id_card_image);
-    }
-  }, [applications]);
-
   return (
     <>
-      {/* Controls - Match ProfileReports Design */}
-      <div style={{
-        display: "flex",
-        gap: 12,
-        marginBottom: 16,
-        alignItems: "center",
-        flexWrap: "wrap"
-      }}>
-        <DropdownButton
-          label="All Time"
-          options={TIME_FILTERS}
-          selected={timeFilter}
-          open={timeDropdownOpen}
-          setOpen={setTimeDropdownOpen}
-          onSelect={setTimeFilter}
-          dropdownRef={timeDropdownRef}
-        />
-        <DropdownButton
-          label="All Status"
-          options={STATUS_OPTIONS}
-          selected={statusFilter}
-          open={statusDropdownOpen}
-          setOpen={setStatusDropdownOpen}
-          onSelect={setStatusFilter}
-          dropdownRef={statusDropdownRef}
-        />
-        <button
-          style={{
-            background: "#eee",
-            color: "#333",
-            border: "none",
-            borderRadius: 6,
-            padding: "7px 16px",
-            fontSize: "13px",
-            cursor: "pointer",
-            marginLeft: 4
-          }}
-          onClick={resetFilters}
-        >
-          Reset Filters
-        </button>
-        <button
-          style={{
-            background: "#2563eb",
-            color: "#fff",
-            border: "none",
-            borderRadius: 6,
-            padding: "7px 16px",
-            fontSize: "13px",
-            cursor: "pointer",
-            marginLeft: 4
-          }}
-          onClick={fetchApplications}
-        >
-          Refresh
-        </button>
-      </div>
-
       <div style={{ overflowX: "auto", position: "relative" }}>
         <table style={{
           width: "100%",
@@ -439,14 +204,14 @@ export default function ClubApplicationTable({ buttonStyle }) {
             </tr>
           </thead>
           <tbody>
-            {filteredApplications.length === 0 ? (
+            {applications.length === 0 ? (
               <tr>
                 <td colSpan="15" style={{ textAlign: "center", padding: "24px", color: "#888" }}>
                   No applications found for the selected criteria
                 </td>
               </tr>
             ) : (
-              filteredApplications.map((item) => (
+              applications.map((item) => (
                 <tr key={item.club_application_id}>
                   <td style={{ border: "1px solid #eee", padding: "8px 6px", fontSize: 13 }}>
                     {item.club_application_id}
@@ -470,22 +235,33 @@ export default function ClubApplicationTable({ buttonStyle }) {
                     {item.province}
                   </td>
                   <td style={{ border: "1px solid #eee", padding: "8px 6px", textAlign: "center" }}>
-                    {imageUrls[`bir_${item.club_application_id}`] ? (
-                      <img
-                        src={imageUrls[`bir_${item.club_application_id}`]}
-                        alt="BIR Registration"
-                        style={{
-                          width: 70,
-                          height: 40,
-                          objectFit: "cover",
-                          borderRadius: 6,
-                          cursor: "pointer"
-                        }}
-                        onClick={() => openImageModal(imageUrls[`bir_${item.club_application_id}`], "BIR Registration")}
-                      />
-                    ) : (
-                      <span style={{ color: "#888", fontSize: 12 }}>No document</span>
-                    )}
+                    {(() => {
+                      const imageKey = `bir_${item.club_application_id}`;
+                      const imageUrl = imageUrls[imageKey];
+                      console.log(`Rendering BIR for app ${item.club_application_id}:`);
+                      console.log(`- Looking for key: ${imageKey}`);
+                      console.log(`- Found URL: ${imageUrl}`);
+                      console.log(`- ImageUrls object:`, imageUrls);
+                      
+                      return imageUrl ? (
+                        <img
+                          src={imageUrl}
+                          alt="BIR Registration"
+                          style={{
+                            width: 70,
+                            height: 40,
+                            objectFit: "cover",
+                            borderRadius: 6,
+                            cursor: "pointer"
+                          }}
+                          onClick={() => openImageModal(imageUrl, "BIR Registration")}
+                          onLoad={() => console.log(`BIR image loaded successfully: ${imageUrl}`)}
+                          onError={() => console.log(`BIR image failed to load: ${imageUrl}`)}
+                        />
+                      ) : (
+                        <span style={{ color: "#888", fontSize: 12 }}>No document</span>
+                      );
+                    })()}
                   </td>
                   <td style={{ border: "1px solid #eee", padding: "8px 6px", textAlign: "center" }}>
                     {imageUrls[`permit_${item.club_application_id}`] ? (
@@ -580,7 +356,7 @@ export default function ClubApplicationTable({ buttonStyle }) {
                             borderRadius: 6,
                             cursor: "pointer"
                           }}
-                          onClick={() => updateApplicationStatus(item.club_application_id, 'pending')}
+                          onClick={() => onRestore(item.club_application_id)}
                         >
                           <span style={{ width: "100%", textAlign: "center" }}>Restore</span>
                         </button>
@@ -595,7 +371,7 @@ export default function ClubApplicationTable({ buttonStyle }) {
                               borderRadius: 6,
                               cursor: "pointer"
                             }}
-                            onClick={() => updateApplicationStatus(item.club_application_id, 'approved')}
+                            onClick={() => onApprove(item.club_application_id)}
                           >
                             <span style={{ width: "100%", textAlign: "center" }}>Approve</span>
                           </button>
