@@ -52,7 +52,7 @@ function Dashboard() {
         <h2>Admin Panel</h2>
         <p>{adminEmail}</p>
         <button className="sidebar-btn" onClick={() => handleTableSelect("admin")}>
-          Admin Table
+          Admin Accounts
         </button>
         
         {/* Applications Dropdown */}

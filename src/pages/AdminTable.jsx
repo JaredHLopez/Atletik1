@@ -469,7 +469,7 @@ export default function AdminTable() {
         alignItems: "center", 
         marginBottom: "20px" 
       }}>
-        <h2 style={{ margin: 0, color: "#333" }}>Admin Management</h2>
+        <h2 style={{ margin: 0, color: "#333" }}>Admin Accounts</h2>
         <div style={{ display: "flex", gap: "10px" }}>
           <button
             onClick={() => setShowCreateForm(!showCreateForm)}

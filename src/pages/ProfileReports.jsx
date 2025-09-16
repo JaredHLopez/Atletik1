@@ -1,18 +1,20 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useRef } from "react";
 import supabase from "../helper/supabaseClient";
 import UserReportTable from "./UserReportTable";
 import ClubReportTable from "./ClubReportTable";
 import OrganizerReportTable from "./OrganizerReportTable";
 import TeamReportTable from "./TeamReportTable";
+import { useFilters, useModal } from "../hooks/useCommon";
+import DropdownButton from "../components/shared/DropdownButton";
+import ActionButton from "../components/shared/ActionButton";
+import ErrorDisplay from "../components/shared/ErrorDisplay";
+import Modal from "../components/shared/Modal";
+import { TIME_FILTER_OPTIONS, REPORT_STATUS_OPTIONS } from "../utils/constants";
+import { REPORT_TABLE_MAP } from "../utils/tableConfig";
+import { getTimeFilter } from "../utils/dateUtils";
+import { processReportData, sortReportsByType } from "../utils/dataUtils";
 
-// Constants
-const TIME_FILTERS = [
-  { label: "Today", value: "day" },
-  { label: "This Week", value: "week" },
-  { label: "This Month", value: "month" },
-  { label: "All Time", value: "all" },
-];
-
+// Constants for dropdown options
 const REPORT_TYPES = [
   { label: "User", value: "user" },
   { label: "Club", value: "club" },
@@ -25,199 +27,53 @@ const SORT_OPTIONS = [
   { label: "Report Count", value: "count" },
 ];
 
-const STATUS_OPTIONS = [
-  { label: "Pending", value: "pending" },
-  { label: "Penalized", value: "penalized" },
-  { label: "Rejected", value: "rejected" },
-];
-
-const TABLE_MAP = {
-  user: {
-    table: "user_reports",
-    id: "reported_id",
-    join: "users:reported_id(user_id, username, intro, bio, profile_image, background_image, suspended_until)",
-    entityTable: "users",
-    pk: "user_id"
-  },
-  club: {
-    table: "club_reports",
-    id: "reported_id",
-    join: "clubs:reported_id(club_id, club_name, sports, street_address, barangay, city, province, profile_image, background_image, suspended_until)",
-    entityTable: "clubs",
-    pk: "club_id"
-  },
-  organizer: {
-    table: "organizer_reports",
-    id: "reported_id",
-    join: "organizers:reported_id(user_id, username, suffix, intro, bio, profile_image, background_image, suspended_until)",
-    entityTable: "organizers",
-    pk: "user_id"
-  },
-  team: {
-    table: "team_reports",
-    id: "reported_id",
-    join: "teams:reported_id(team_id, team_name, sports, street_address, barangay, city, province, intro, bio, profile_image, background_image, suspended_until)",
-    entityTable: "teams",
-    pk: "team_id"
-  }
-};
-
-const getTimeFilter = (timeFilter) => {
-  const now = new Date();
-  switch (timeFilter) {
-    case "day":
-      const startOfDay = new Date(now);
-      startOfDay.setHours(0, 0, 0, 0);
-      return startOfDay;
-    case "week":
-      const weekAgo = new Date(now);
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      return weekAgo;
-    case "month":
-      const monthAgo = new Date(now);
-      monthAgo.setMonth(monthAgo.getMonth() - 1);
-      return monthAgo;
-    default:
-      return null;
-  }
-};
-
-const extractEntityFromReport = (report, reportType) => {
-  const entityTable = TABLE_MAP[reportType].entityTable;
-  const entity = report[entityTable];
-  if (entity && typeof entity === "object") {
-    return { ...entity };
-  }
-  return null;
-};
-
-const sortReports = (reports, sortBy) => {
-  return [...reports].sort((a, b) => {
-    if (sortBy === "count") {
-      return b.reportCount - a.reportCount;
-    } else if (sortBy === "recent") {
-      return new Date(b.lastReported) - new Date(a.lastReported);
-    }
-    return 0;
-  });
-};
-
-function DropdownButton({
-  label,
-  options,
-  selected,
-  open,
-  setOpen,
-  onSelect,
-  dropdownRef
-}) {
-  const selectedOption = options.find(opt => opt.value === selected);
-
-  return (
-    <div style={{ position: "relative" }} ref={dropdownRef}>
-      <button
-        className="sidebar-btn"
-        style={{
-          backgroundColor: "var(--primary-color)",
-          color: "#fff",
-          minWidth: 120,
-          marginBottom: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-        onClick={() => setOpen(prev => !prev)}
-        type="button"
-        aria-expanded={open}
-        aria-haspopup="true"
-      >
-        {selectedOption?.label || label}
-        <span style={{ marginLeft: 8, fontSize: 12 }}>▼</span>
-      </button>
-      {open && (
-        <div
-          style={{
-            position: "absolute",
-            top: "110%",
-            left: 0,
-            background: "#fff",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-            borderRadius: 6,
-            zIndex: 10,
-            minWidth: 120,
-            padding: "4px 0",
-            display: "flex",
-            flexDirection: "column"
-          }}
-        >
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              className="sidebar-btn"
-              style={{
-                backgroundColor: selected === opt.value ? "var(--primary-color)" : "transparent",
-                color: selected === opt.value ? "#fff" : "var(--primary-color)",
-                borderRadius: 0,
-                width: "100%",
-                textAlign: "left",
-                marginBottom: 0,
-                padding: "10px 16px"
-              }}
-              onClick={() => {
-                onSelect(opt.value);
-                setOpen(false);
-              }}
-              type="button"
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function ProfileReports() {
-  // State
-  const [reports, setReports] = useState([]);
-  const [sortBy, setSortBy] = useState("recent");
-  const [timeFilter, setTimeFilter] = useState("day");
-  const [reportType, setReportType] = useState("user");
-  const [statusFilter, setStatusFilter] = useState("pending");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [suspendModal, setSuspendModal] = useState({
-    open: false,
-    userId: null,
-    until: ""
+  // Custom hooks
+  const { filters, updateFilter, resetFilters } = useFilters({
+    timeFilter: "day",
+    statusFilter: "pending",
+    reportType: "user",
+    sortBy: "recent"
   });
+
+  const { isOpen: suspendModalOpen, data: suspendData, openModal: openSuspendModal, closeModal: closeSuspendModal } = useModal();
+
+  // Local state
+  const [reports, setReports] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState(null);
+  const [suspendUntil, setSuspendUntil] = React.useState("");
 
   // Dropdown states
-  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
-  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
-  const [timeDropdownOpen, setTimeDropdownOpen] = useState(false);
-  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [typeDropdownOpen, setTypeDropdownOpen] = React.useState(false);
+  const [sortDropdownOpen, setSortDropdownOpen] = React.useState(false);
+  const [timeDropdownOpen, setTimeDropdownOpen] = React.useState(false);
+  const [statusDropdownOpen, setStatusDropdownOpen] = React.useState(false);
 
-  // Refs
+  // Refs for dropdown click handling
   const typeDropdownRef = useRef(null);
   const sortDropdownRef = useRef(null);
   const timeDropdownRef = useRef(null);
   const statusDropdownRef = useRef(null);
 
   // Fetch reports function
-  const fetchReports = useCallback(async () => {
+  const fetchReports = React.useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const { table, id, join } = TABLE_MAP[reportType];
-      const fromDate = getTimeFilter(timeFilter);
+      const tableConfig = REPORT_TABLE_MAP[filters.reportType];
+      if (!tableConfig) {
+        throw new Error(`Unknown report type: ${filters.reportType}`);
+      }
+
+      const { table, id, join } = tableConfig;
+      const fromDate = getTimeFilter(filters.timeFilter);
 
       let query = supabase
         .from(table)
         .select(`report_id, ${id}, reason, approval_status, created_at, ${join}`)
-        .eq("approval_status", statusFilter);
+        .eq("approval_status", filters.statusFilter);
 
       if (fromDate) {
         query = query.gte("created_at", fromDate.toISOString());
@@ -234,44 +90,13 @@ export default function ProfileReports() {
         return;
       }
 
-      // Group reports by entity
-      const grouped = {};
-      data.forEach((report) => {
-        const entityId = report[id];
-        if (!grouped[entityId]) {
-          const entity = extractEntityFromReport(report, reportType);
-          grouped[entityId] = {
-            entity: entity || { [TABLE_MAP[reportType].pk]: entityId },
-            reports: []
-          };
-        }
-        grouped[entityId].reports.push(report);
-      });
-
-      // Transform grouped data
-      let groupedArray = Object.values(grouped).map((group) => {
-        const reasons = group.reports.flatMap((report) =>
-          Array.isArray(report.reason) ? report.reason : [report.reason]
-        ).filter(Boolean);
-
-        const reportIds = group.reports.map(report => report.report_id);
-
-        return {
-          ...group.entity,
-          reportIds: reportIds,
-          reportCount: group.reports.length,
-          reasons: [...new Set(reasons)],
-          lastReported: group.reports.reduce((latest, report) => {
-            return new Date(report.created_at) > new Date(latest)
-              ? report.created_at
-              : latest;
-          }, group.reports[0]?.created_at),
-          approval_status: group.reports[0]?.approval_status
-        };
-      });
-
-      groupedArray = sortReports(groupedArray, sortBy);
-      setReports(groupedArray);
+      // Process and group the data using utility function
+      let processedReports = processReportData(data, filters.reportType);
+      
+      // Sort the reports using utility function
+      processedReports = sortReportsByType(processedReports, filters.sortBy);
+      
+      setReports(processedReports);
 
     } catch (err) {
       console.error("Error fetching reports:", err);
@@ -280,38 +105,44 @@ export default function ProfileReports() {
     } finally {
       setLoading(false);
     }
-  }, [sortBy, timeFilter, reportType, statusFilter]);
+  }, [filters]);
 
   // Handle waive action
-  const handleWaive = useCallback(async (entityId) => {
+  const handleWaive = React.useCallback(async (entityId) => {
     try {
-      const reportObj = reports.find(r => r[TABLE_MAP[reportType].pk] === entityId);
-      if (!reportObj || !reportObj.reportIds || reportObj.reportIds.length === 0) {
+      const tableConfig = REPORT_TABLE_MAP[filters.reportType];
+      const reportObj = reports.find(r => r[tableConfig.pk] === entityId);
+      
+      if (!reportObj?.reportIds?.length) {
         setError("No reports found for this entity");
         return;
       }
-      const { table } = TABLE_MAP[reportType];
+
       const { error } = await supabase
-        .from(table)
+        .from(tableConfig.table)
         .update({ approval_status: "rejected" })
         .in("report_id", reportObj.reportIds);
+
       if (error) throw error;
+      
       setError(null);
       await fetchReports();
     } catch (err) {
       console.error("Error rejecting report:", err);
       setError("Failed to reject report");
     }
-  }, [reportType, fetchReports, reports]);
+  }, [filters.reportType, fetchReports, reports]);
 
   // Handle penalize action
-  const handlePenalize = useCallback(async (entityId, untilDate) => {
+  const handlePenalize = React.useCallback(async (entityId, untilDate) => {
     try {
       if (!untilDate) {
         setError("Please select a suspension date");
         return;
       }
-      const { entityTable, pk, table } = TABLE_MAP[reportType];
+
+      const tableConfig = REPORT_TABLE_MAP[filters.reportType];
+      const { entityTable, pk, table } = tableConfig;
 
       // 1. Suspend the entity
       const { error: suspendError } = await supabase
@@ -323,33 +154,38 @@ export default function ProfileReports() {
 
       // 2. Update all related reports to "penalized"
       const reportObj = reports.find(r => r[pk] === entityId);
-      if (reportObj && reportObj.reportIds && reportObj.reportIds.length > 0) {
+      if (reportObj?.reportIds?.length) {
         const { error: reportError } = await supabase
           .from(table)
           .update({ approval_status: "penalized" })
           .in("report_id", reportObj.reportIds)
           .eq("approval_status", "pending");
+          
         if (reportError) throw reportError;
       }
 
       setError(null);
-      setSuspendModal({ open: false, userId: null, until: "" });
+      closeSuspendModal();
+      setSuspendUntil("");
       await fetchReports();
     } catch (err) {
       console.error("Error penalizing entity:", err);
       setError("Failed to suspend entity");
     }
-  }, [reportType, fetchReports, reports]);
+  }, [filters.reportType, fetchReports, reports, closeSuspendModal]);
 
   // Handle restore action
-  const handleRestore = useCallback(async (entityId) => {
+  const handleRestore = React.useCallback(async (entityId) => {
     try {
-      const reportObj = reports.find(r => r[TABLE_MAP[reportType].pk] === entityId);
-      if (!reportObj || !reportObj.reportIds || reportObj.reportIds.length === 0) {
+      const tableConfig = REPORT_TABLE_MAP[filters.reportType];
+      const reportObj = reports.find(r => r[tableConfig.pk] === entityId);
+      
+      if (!reportObj?.reportIds?.length) {
         setError("No reports found for this entity");
         return;
       }
-      const { table, entityTable, pk } = TABLE_MAP[reportType];
+
+      const { table, entityTable, pk } = tableConfig;
 
       // 1. Restore report status to pending
       const { error: reportError } = await supabase
@@ -357,6 +193,7 @@ export default function ProfileReports() {
         .update({ approval_status: "pending" })
         .in("report_id", reportObj.reportIds)
         .in("approval_status", ["rejected", "penalized"]);
+        
       if (reportError) throw reportError;
 
       // 2. Remove suspension from entity
@@ -364,6 +201,7 @@ export default function ProfileReports() {
         .from(entityTable)
         .update({ suspended_until: null })
         .eq(pk, entityId);
+        
       if (entityError) throw entityError;
 
       setError(null);
@@ -372,15 +210,20 @@ export default function ProfileReports() {
       console.error("Error restoring report:", err);
       setError("Failed to restore report");
     }
-  }, [reportType, fetchReports, reports]);
+  }, [filters.reportType, fetchReports, reports]);
 
-  // Reset filters
-  const handleResetFilters = () => {
-    setReportType("user");
-    setSortBy("recent");
-    setTimeFilter("day");
-    setStatusFilter("pending");
-  };
+  // Handle opening suspend modal
+  const handleOpenSuspendModal = React.useCallback((entityId) => {
+    openSuspendModal(entityId);
+    setSuspendUntil("");
+  }, [openSuspendModal]);
+
+  // Handle confirming suspension
+  const handleConfirmSuspend = React.useCallback(() => {
+    if (suspendData && suspendUntil) {
+      handlePenalize(suspendData, suspendUntil);
+    }
+  }, [suspendData, suspendUntil, handlePenalize]);
 
   // Effects
   useEffect(() => {
@@ -403,6 +246,7 @@ export default function ProfileReports() {
         setStatusDropdownOpen(false);
       }
     }
+    
     const hasOpenDropdown = typeDropdownOpen || sortDropdownOpen || timeDropdownOpen || statusDropdownOpen;
     if (hasOpenDropdown) {
       document.addEventListener("mousedown", handleClickOutside);
@@ -411,69 +255,55 @@ export default function ProfileReports() {
   }, [typeDropdownOpen, sortDropdownOpen, timeDropdownOpen, statusDropdownOpen]);
 
   // Render correct table based on reportType
-  function renderReportTable() {
+  const renderReportTable = () => {
     const sharedButtonStyle = {
       minWidth: 90,
       padding: "8px 0",
       fontSize: "14px"
     };
-    switch (reportType) {
+
+    const tableProps = {
+      reports,
+      onPenalize: handleOpenSuspendModal,
+      onReject: handleWaive,
+      onRestore: handleRestore,
+      buttonStyle: sharedButtonStyle
+    };
+
+    switch (filters.reportType) {
       case "user":
         return (
           <div style={{ overflowX: "auto" }}>
-            <UserReportTable
-              reports={reports}
-              onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
-              onReject={handleWaive}
-              onRestore={handleRestore}
-              buttonStyle={sharedButtonStyle}
-            />
+            <UserReportTable {...tableProps} />
           </div>
         );
       case "club":
         return (
           <div style={{ overflowX: "auto" }}>
-            <ClubReportTable
-              reports={reports}
-              onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
-              onReject={handleWaive}
-              onRestore={handleRestore}
-              buttonStyle={sharedButtonStyle}
-            />
+            <ClubReportTable {...tableProps} />
           </div>
         );
       case "organizer":
         return (
           <div style={{ overflowX: "auto" }}>
-            <OrganizerReportTable
-              reports={reports}
-              onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
-              onReject={handleWaive}
-              onRestore={handleRestore}
-              buttonStyle={sharedButtonStyle}
-            />
+            <OrganizerReportTable {...tableProps} />
           </div>
         );
       case "team":
         return (
           <div style={{ overflowX: "auto" }}>
-            <TeamReportTable
-              reports={reports}
-              onPenalize={id => setSuspendModal({ open: true, userId: id, until: "" })}
-              onReject={handleWaive}
-              onRestore={handleRestore}
-              buttonStyle={sharedButtonStyle}
-            />
+            <TeamReportTable {...tableProps} />
           </div>
         );
       default:
         return null;
     }
-  }
+  };
 
   return (
     <div style={{ minHeight: "500px" }}>
       <h2>Profile Reports</h2>
+      
       {/* Controls */}
       <div style={{
         display: "flex",
@@ -485,147 +315,109 @@ export default function ProfileReports() {
         <DropdownButton
           label="All Reports"
           options={REPORT_TYPES}
-          selected={reportType}
+          selected={filters.reportType}
           open={typeDropdownOpen}
           setOpen={setTypeDropdownOpen}
-          onSelect={setReportType}
+          onSelect={(value) => updateFilter("reportType", value)}
           dropdownRef={typeDropdownRef}
         />
+        
         <DropdownButton
           label="Most Recent"
           options={SORT_OPTIONS}
-          selected={sortBy}
+          selected={filters.sortBy}
           open={sortDropdownOpen}
           setOpen={setSortDropdownOpen}
-          onSelect={setSortBy}
+          onSelect={(value) => updateFilter("sortBy", value)}
           dropdownRef={sortDropdownRef}
         />
+        
         <DropdownButton
           label="All Time"
-          options={TIME_FILTERS}
-          selected={timeFilter}
+          options={TIME_FILTER_OPTIONS}
+          selected={filters.timeFilter}
           open={timeDropdownOpen}
           setOpen={setTimeDropdownOpen}
-          onSelect={setTimeFilter}
+          onSelect={(value) => updateFilter("timeFilter", value)}
           dropdownRef={timeDropdownRef}
         />
+        
         <DropdownButton
           label="All Status"
-          options={STATUS_OPTIONS}
-          selected={statusFilter}
+          options={REPORT_STATUS_OPTIONS}
+          selected={filters.statusFilter}
           open={statusDropdownOpen}
           setOpen={setStatusDropdownOpen}
-          onSelect={setStatusFilter}
+          onSelect={(value) => updateFilter("statusFilter", value)}
           dropdownRef={statusDropdownRef}
         />
-        <button
-          style={{
-            background: "#eee",
-            color: "#333",
-            border: "none",
-            borderRadius: 6,
-            padding: "7px 16px",
-            fontSize: "13px",
-            cursor: "pointer",
-            marginLeft: 4
-          }}
-          onClick={handleResetFilters}
+        
+        <ActionButton
+          variant="secondary"
+          onClick={resetFilters}
+          style={{ marginLeft: 4 }}
         >
           Reset Filters
-        </button>
-        <button
-          style={{
-            background: "#2563eb",
-            color: "#fff",
-            border: "none",
-            borderRadius: 6,
-            padding: "7px 16px",
-            fontSize: "13px",
-            cursor: "pointer",
-            marginLeft: 4
-          }}
+        </ActionButton>
+        
+        <ActionButton
+          variant="primary"
           onClick={fetchReports}
+          style={{ marginLeft: 4 }}
         >
           Refresh
-        </button>
+        </ActionButton>
       </div>
+
       {/* Error display */}
-      {error && (
-        <div style={{
-          padding: "12px 16px",
-          marginBottom: 16,
-          backgroundColor: "#fee",
-          color: "#c00",
-          borderRadius: 6,
-          border: "1px solid #fcc"
-        }}>
-          {error}
-        </div>
-      )}
+      <ErrorDisplay error={error} />
+
       {/* Content */}
       {loading ? (
         <p>Loading...</p>
       ) : (
         renderReportTable()
       )}
-      {/* Penalize Modal */}
-      {suspendModal.open && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100vw",
-          height: "100vh",
-          background: "rgba(0,0,0,0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: "#fff",
-            padding: 24,
-            borderRadius: 8,
-            minWidth: 320,
-            maxWidth: 500,
-            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
-          }}>
-            <h3 style={{ marginTop: 0, marginBottom: 16 }}>
-              Set Suspension Date
-            </h3>
-            <input
-              type="datetime-local"
-              value={suspendModal.until}
-              onChange={(e) => setSuspendModal(s => ({ ...s, until: e.target.value }))}
-              style={{
-                marginBottom: 16,
-                width: "100%",
-                padding: "8px 12px",
-                border: "1px solid #ccc",
-                borderRadius: 4
-              }}
-              min={new Date().toISOString().slice(0, 16)}
-            />
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button
-                className="decline-btn"
-                onClick={() => setSuspendModal({ open: false, userId: null, until: "" })}
-                style={{ minWidth: 90, padding: "8px 0", fontSize: "14px" }}
-              >
-                Cancel
-              </button>
-              <button
-                className="accept-btn"
-                onClick={() => handlePenalize(suspendModal.userId, suspendModal.until)}
-                disabled={!suspendModal.until}
-                style={{ minWidth: 90, padding: "8px 0", fontSize: "14px" }}
-              >
-                Suspend
-              </button>
-            </div>
-          </div>
+
+      {/* Suspend Modal */}
+      <Modal
+        isOpen={suspendModalOpen}
+        onClose={closeSuspendModal}
+        title="Set Suspension Date"
+        showDefaultButtons={false}
+      >
+        <div style={{ marginBottom: 16 }}>
+          <input
+            type="datetime-local"
+            value={suspendUntil}
+            onChange={(e) => setSuspendUntil(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              border: "1px solid #ccc",
+              borderRadius: 4
+            }}
+            min={new Date().toISOString().slice(0, 16)}
+          />
         </div>
-      )}
+        
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <ActionButton
+            variant="secondary"
+            onClick={closeSuspendModal}
+          >
+            Cancel
+          </ActionButton>
+          
+          <ActionButton
+            variant="danger"
+            onClick={handleConfirmSuspend}
+            disabled={!suspendUntil}
+          >
+            Suspend
+          </ActionButton>
+        </div>
+      </Modal>
     </div>
   );
 }
