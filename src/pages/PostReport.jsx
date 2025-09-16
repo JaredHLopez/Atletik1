@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import supabase from "../helper/supabaseClient";
 
-// Constants (unchanged)
+// Constants (updated)
 const TIME_FILTERS = [
   { label: "All Time", value: "all" },
   { label: "Today", value: "day" },
@@ -12,7 +12,7 @@ const TIME_FILTERS = [
 const STATUS_OPTIONS = [
   { label: "All Status", value: "all" },
   { label: "Pending", value: "pending" },
-  { label: "Approved", value: "approved" },
+  { label: "Penalized", value: "penalized" },
   { label: "Rejected", value: "rejected" },
 ];
 
@@ -131,8 +131,27 @@ function DropdownButton({
   );
 }
 
-// Image Modal Component
+// Enhanced Image Modal Component with loading state
 function ImageModal({ imageUrl, onClose }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (imageUrl) {
+      setLoading(true);
+      setError(false);
+      
+      // Preload the image
+      const img = new Image();
+      img.src = imageUrl;
+      img.onload = () => setLoading(false);
+      img.onerror = () => {
+        setLoading(false);
+        setError(true);
+      };
+    }
+  }, [imageUrl]);
+
   if (!imageUrl) return null;
 
   return (
@@ -143,7 +162,7 @@ function ImageModal({ imageUrl, onClose }) {
         left: 0,
         width: "100vw",
         height: "100vh",
-        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        backgroundColor: "rgba(0, 0, 0, 0.9)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -184,20 +203,45 @@ function ImageModal({ imageUrl, onClose }) {
         >
           ×
         </button>
-        <img
-          src={imageUrl}
-          alt="Enlarged view"
-          style={{
-            maxWidth: "100%",
-            maxHeight: "100%",
-            objectFit: "contain",
+        
+        {loading && (
+          <div style={{
+            width: "100px",
+            height: "100px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "white"
+          }}>
+            Loading...
+          </div>
+        )}
+        
+        {error && (
+          <div style={{
+            padding: "20px",
+            backgroundColor: "rgba(255, 255, 255, 0.1)",
             borderRadius: "8px",
-            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)"
-          }}
-          onError={(e) => {
-            e.target.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIxIDEyQzIxIDEyLjc0IDIwLjc5IDEzLjQxIDIwLjQxIDEzLjk5TDE4IDExLjU4VjhIMTQuOTJMMTMuNjYgNi43NEMxMy4yNiA2LjM0IDEyLjc0IDYuMTQgMTIuMjEgNi4xNEgxMC43OUM5Ljc5IDYuMTQgOSA2LjkzIDkgNy45M1YxNi4wN0M5IDE3LjA3IDkuNzkgMTcuODYgMTAuNzkgMTcuODZIMTYuMjFDMTcuMjEgMTcuODYgMTggMTcuMDcgMTggMTYuMDdWMTUuNDJMMjAuNDEgMTcuODNDMjAuNzkgMTguNDEgMjEgMTkuMjYgMjEgMTlWMTJaTTMgNUwxMC41OSAxMi41OSAxNiAxN0wxOS41IDE2LjVMMjEgMThWMTlDMjEgMTkuNTUgMjAuNTUgMjAgMjAgMjBIM0MzLjQ1IDIwIDMgMTkuNTUgMyAxOVY2QzMgNS40NSAzLjQ1IDUgNCA1SDNaIiBmaWxsPSIjOTk5Ii8+Cjwvc3ZnPgo=";
-          }}
-        />
+            color: "white",
+            textAlign: "center"
+          }}>
+            Failed to load image
+          </div>
+        )}
+        
+        {!loading && !error && (
+          <img
+            src={imageUrl}
+            alt="Enlarged view"
+            style={{
+              maxWidth: "100%",
+              maxHeight: "100%",
+              objectFit: "contain",
+              borderRadius: "8px",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)"
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -205,7 +249,7 @@ function ImageModal({ imageUrl, onClose }) {
 
 // Main component
 export default function PostReport() {
-  // State (unchanged)
+  // State - removed actionModal state
   const [reports, setReports] = useState([]);
   const [sortBy, setSortBy] = useState(DEFAULT_SORT);
   const [timeFilter, setTimeFilter] = useState(DEFAULT_TIME_FILTER);
@@ -213,13 +257,6 @@ export default function PostReport() {
   const [reportTypeFilter, setReportTypeFilter] = useState(DEFAULT_REPORT_TYPE_FILTER);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [actionModal, setActionModal] = useState({ 
-    open: false, 
-    reportId: null, 
-    postId: null, 
-    action: "",
-    reportType: null
-  });
 
   // Add image modal state
   const [imageModal, setImageModal] = useState({
@@ -271,7 +308,7 @@ export default function PostReport() {
     return await query;
   };
 
-  // Helper function to get full image URL
+  // Enhanced Helper function to get full image URL
   const getImageUrl = (imagePath) => {
     if (!imagePath || imagePath === "no image") return null;
     
@@ -281,12 +318,18 @@ export default function PostReport() {
     }
     
     // If it's a Supabase storage path, construct the full URL
-    // Adjust this based on your Supabase storage configuration
-    if (imagePath.startsWith('tournament-posters/')) {
-      return `${supabase.storage.from('tournament-posters').getPublicUrl(imagePath).data.publicUrl}`;
+    // This is the most likely format for your image paths
+    if (imagePath.includes('/')) {
+      // Extract bucket name and path
+      const parts = imagePath.split('/');
+      if (parts.length >= 2) {
+        const bucketName = parts[0];
+        const filePath = parts.slice(1).join('/');
+        return `${supabase.storage.from(bucketName).getPublicUrl(filePath).data.publicUrl}`;
+      }
     }
     
-    // Default fallback - might need adjustment based on your setup
+    // Default fallback for other cases
     return imagePath;
   };
 
@@ -494,17 +537,43 @@ export default function PostReport() {
     resetFilters();
   }, [resetFilters]);
 
-  // Update report status (unchanged)
+  // Update report status and handle post removal - UPDATED to use "penalized" instead of "Approved"
   const handleReportAction = useCallback(async (reportId, action, reportType) => {
     try {
-      const tableName = reportType === "practice" ? "practice_post_reports" : "tournament_post_reports";
+      const reportTableName = reportType === "practice" ? "practice_post_reports" : "tournament_post_reports";
       
-      const { error } = await supabase
-        .from(tableName)
+      // Update the report status - changed from "Approved" to "penalized"
+      const { error: reportError } = await supabase
+        .from(reportTableName)
         .update({ approval_status: action })
         .eq("report_id", reportId);
 
-      if (error) throw error;
+      if (reportError) throw reportError;
+
+      // If penalizing a tournament report, also update the tournament post
+      if (action === "penalized" && reportType === "tournament") { // Changed from "Approved" to "penalized"
+        // First get the reported post ID from the report
+        const { data: reportData, error: getReportError } = await supabase
+          .from(reportTableName)
+          .select("reported_id")
+          .eq("report_id", reportId)
+          .single();
+
+        if (getReportError) {
+          console.error("Error getting report data:", getReportError);
+        } else if (reportData?.reported_id) {
+          // Update the tournament post to mark it as removed by admin
+          const { error: postError } = await supabase
+            .from("tournament_posts")
+            .update({ removed_by_atletik_admin: true })
+            .eq("tournament_id", reportData.reported_id);
+
+          if (postError) {
+            console.error("Error updating tournament post:", postError);
+            // Don't throw here - the report was still updated successfully
+          }
+        }
+      }
       
       setError(null);
       await fetchReports();
@@ -513,54 +582,6 @@ export default function PostReport() {
       setError("Failed to update report status");
     }
   }, [fetchReports]);
-
-  // Hide/unhide post (unchanged)
-  const handlePostVisibility = useCallback(async (postId, hide, postType) => {
-    try {
-      const tableName = postType === "practice" ? "practice_posts" : "tournament_posts";
-      const idColumn = postType === "practice" ? "practice_id" : "tournament_id";
-      
-      const { error } = await supabase
-        .from(tableName)
-        .update({ is_hidden: hide })
-        .eq(idColumn, postId);
-
-      if (error) throw error;
-      
-      setError(null);
-      await fetchReports();
-    } catch (err) {
-      console.error("Error updating post visibility:", err);
-      setError("Failed to update post visibility");
-    }
-  }, [fetchReports]);
-
-  // Delete post (unchanged)
-  const handleDeletePost = useCallback(async (postId, postType) => {
-    try {
-      const tableName = postType === "practice" ? "practice_posts" : "tournament_posts";
-      const idColumn = postType === "practice" ? "practice_id" : "tournament_id";
-      
-      const { error } = await supabase
-        .from(tableName)
-        .delete()
-        .eq(idColumn, postId);
-
-      if (error) throw error;
-      
-      setError(null);
-      setActionModal({ open: false, reportId: null, postId: null, action: "", reportType: null });
-      await fetchReports();
-    } catch (err) {
-      console.error("Error deleting post:", err);
-      setError("Failed to delete post");
-    }
-  }, [fetchReports]);
-
-  // Close modal (unchanged)
-  const closeActionModal = useCallback(() => {
-    setActionModal({ open: false, reportId: null, postId: null, action: "", reportType: null });
-  }, []);
 
   // Handle image click
   const handleImageClick = useCallback((imageUrl) => {
@@ -708,7 +729,7 @@ export default function PostReport() {
         </div>
       )}
 
-      {/* Reports Table - ENHANCED with better image handling */}
+      {/* Reports Table - Removed Hide/Delete Post functionality */}
       {loading ? (
         <p>Loading post reports...</p>
       ) : reports.length === 0 ? (
@@ -760,11 +781,6 @@ export default function PostReport() {
                     </td>
                     <td style={{ padding: "12px", border: "1px solid #ddd" }}>
                       {report.post?.title || "Unknown Post"}
-                      {report.post?.is_hidden && (
-                        <span style={{ color: "#dc3545", marginLeft: "8px", fontSize: "12px" }}>
-                          (Hidden)
-                        </span>
-                      )}
                       {!report.post && (
                         <span style={{ color: "#dc3545", fontSize: "12px" }}>
                           (Post not found)
@@ -939,11 +955,11 @@ export default function PostReport() {
                         fontSize: "12px",
                         fontWeight: "bold",
                         backgroundColor: 
-                          report.approval_status === "approved" ? "#d4edda" :
+                          report.approval_status === "penalized" ? "#d4edda" : // Changed from "Approved" to "penalized"
                           report.approval_status === "rejected" ? "#f8d7da" :
                           "#fff3cd",
                         color: 
-                          report.approval_status === "approved" ? "#155724" :
+                          report.approval_status === "penalized" ? "#155724" : // Changed from "Approved" to "penalized"
                           report.approval_status === "rejected" ? "#721c24" :
                           "#856404"
                       }}>
@@ -967,9 +983,9 @@ export default function PostReport() {
                                 cursor: "pointer",
                                 fontSize: "12px"
                               }}
-                              onClick={() => handleReportAction(report.report_id, "approved", report.reportType)}
+                              onClick={() => handleReportAction(report.report_id, "penalized", report.reportType)} // Changed from "Approved" to "penalized"
                             >
-                              Approve
+                              Penalize
                             </button>
                             <button 
                               style={{ 
@@ -987,46 +1003,6 @@ export default function PostReport() {
                             </button>
                           </>
                         )}
-                        
-                        {report.post && (
-                          <>
-                            <button 
-                              style={{ 
-                                padding: "6px 12px", 
-                                backgroundColor: report.post.is_hidden ? "#17a2b8" : "#ffc107", 
-                                color: "white", 
-                                border: "none", 
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px"
-                              }}
-                              onClick={() => handlePostVisibility(report.post.id, !report.post.is_hidden, report.reportType)}
-                            >
-                              {report.post.is_hidden ? "Unhide Post" : "Hide Post"}
-                            </button>
-                            
-                            <button 
-                              style={{ 
-                                padding: "6px 12px", 
-                                backgroundColor: "#dc3545", 
-                                color: "white", 
-                                border: "none", 
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px"
-                              }}
-                              onClick={() => setActionModal({ 
-                                open: true, 
-                                reportId: report.report_id, 
-                                postId: report.post.id, 
-                                action: "delete",
-                                reportType: report.reportType
-                              })}
-                            >
-                              Delete Post
-                            </button>
-                          </>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -1037,69 +1013,27 @@ export default function PostReport() {
         </div>
       )}
 
+      {/* Debug Info for Development */}
+      {process.env.NODE_ENV === 'development' && (
+        <details style={{ marginTop: '20px', padding: '10px', background: '#f5f5f5' }}>
+          <summary>Debug Info (Dev only)</summary>
+          <div>
+            {reports.map((report, index) => (
+              <div key={index} style={{ marginBottom: '10px' }}>
+                <strong>Report {index}:</strong> {report.post?.image} → 
+                <strong>URL:</strong> {getImageUrl(report.post?.image)}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
       {/* Image Modal */}
       {imageModal.open && (
         <ImageModal 
           imageUrl={imageModal.imageUrl} 
           onClose={closeImageModal} 
         />
-      )}
-
-      {/* Delete Confirmation Modal (unchanged) */}
-      {actionModal.open && actionModal.action === "delete" && (
-        <div style={{
-          position: "fixed", 
-          top: 0, 
-          left: 0, 
-          width: "100vw", 
-          height: "100vh",
-          background: "rgba(0,0,0,0.3)", 
-          display: "flex", 
-          alignItems: "center", 
-          justifyContent: "center",
-          zIndex: 1000
-        }}>
-          <div style={{ 
-            background: "#fff", 
-            padding: "24px", 
-            borderRadius: "8px", 
-            minWidth: "320px",
-            boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
-          }}>
-            <h3 style={{ marginTop: 0 }}>Confirm Delete</h3>
-            <p>Are you sure you want to delete this post? This action cannot be undone.</p>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                style={{ 
-                  padding: "8px 16px", 
-                  backgroundColor: "#dc3545", 
-                  color: "white", 
-                  border: "none", 
-                  borderRadius: "4px",
-                  cursor: "pointer"
-                }}
-                onClick={() => {
-                  handleDeletePost(actionModal.postId, actionModal.reportType);
-                }}
-              >
-                Delete
-              </button>
-              <button 
-                style={{ 
-                  padding: "8px 16px", 
-                  backgroundColor: "#6c757d", 
-                  color: "white", 
-                  border: "none", 
-                  borderRadius: "4px",
-                  cursor: "pointer"
-                }}
-                onClick={closeActionModal}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
