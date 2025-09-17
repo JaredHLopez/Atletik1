@@ -207,13 +207,22 @@ export default function ReportTable({
 
     return (
       <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-        <ActionButton
-          variant="success"
+        <button
           onClick={() => onPenalize(entityId)}
-          style={buttonStyle}
+          style={{
+            ...buttonStyle,
+            background: "#52c41a",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            padding: "6px 12px",
+            cursor: "pointer",
+            fontSize: "14px",
+            fontWeight: "500"
+          }}
         >
           Penalize
-        </ActionButton>
+        </button>
         <ActionButton
           variant="danger"
           onClick={() => onReject(entityId)}
