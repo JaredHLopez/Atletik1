@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import supabase from "../helper/supabaseClient";
 
 // UPDATED VERSION - Check console for "=== UPDATED POSTREPORT LOADED ==="
-console.log("=== UPDATED POSTREPORT LOADED - CONSOLIDATED VERSION ===");
+console.log("=== UPDATED POSTREPORT LOADED - CONSOLIDATED VERSION WITH BULLETIN ===");
 
 // Constants
 const TIME_FILTERS = [
@@ -23,6 +23,7 @@ const REPORT_TYPE_OPTIONS = [
   { label: "All Reports", value: "all" },
   { label: "Practice Reports", value: "practice" },
   { label: "Tournament Reports", value: "tournament" },
+  { label: "Bulletin Reports", value: "bulletin" },
 ];
 
 const SORT_OPTIONS = [
@@ -356,7 +357,7 @@ export default function PostReport() {
       setLoading(true);
       setError(null);
       
-      console.log("=== FETCH REPORTS STARTED (CONSOLIDATED VERSION) ===");
+      console.log("=== FETCH REPORTS STARTED (CONSOLIDATED VERSION WITH BULLETIN) ===");
 
       const fromDate = getTimeFilter(timeFilter);
       let consolidatedReports = [];
@@ -453,10 +454,11 @@ export default function PostReport() {
                 } : null;
               }).filter(Boolean);
 
-              // Collect all unique reasons
+              // Collect all unique reasons - filter out empty/null values
               const allReasons = [...new Set(reportsForPost.flatMap(report => 
-                Array.isArray(report.reason) ? report.reason : (report.reason ? [report.reason] : [])
-              ))];
+                Array.isArray(report.reason) ? report.reason.filter(r => r && r.trim() !== '') : 
+                (report.reason && report.reason.trim() !== '' ? [report.reason] : [])
+              ))].filter(Boolean);
 
               consolidatedReports.push({
                 ...mostRecentReport, // Use most recent report as base
@@ -488,6 +490,144 @@ export default function PostReport() {
           }
         } catch (err) {
           console.error("❌ Practice section exception:", err);
+        }
+      }
+
+      // === BULLETIN REPORTS ===
+      if (reportTypeFilter === "all" || reportTypeFilter === "bulletin") {
+        try {
+          console.log("🔄 Fetching bulletin reports...");
+          
+          let bulletinQuery = supabase.from("bulletin_post_reports").select("*");
+          if (fromDate) bulletinQuery = bulletinQuery.gte("created_at", fromDate.toISOString());
+          if (statusFilter !== "all") bulletinQuery = bulletinQuery.eq("approval_status", statusFilter);
+
+          const { data: bulletinReportsData, error: bulletinReportsError } = await bulletinQuery;
+          
+          if (bulletinReportsError) {
+            console.error("❌ Bulletin reports error:", bulletinReportsError);
+          } else if (bulletinReportsData && bulletinReportsData.length > 0) {
+            console.log("✅ Bulletin reports found:", bulletinReportsData.length);
+            
+            // Group reports by post ID
+            const groupedByPost = {};
+            bulletinReportsData.forEach(report => {
+              if (report.reported_id) {
+                if (!groupedByPost[report.reported_id]) {
+                  groupedByPost[report.reported_id] = [];
+                }
+                groupedByPost[report.reported_id].push(report);
+              }
+            });
+
+            // Get unique valid flagger IDs from all reports
+            const allFlaggerIds = sanitizeUUIDArray(bulletinReportsData.map(r => r.flagger_id));
+            
+            // Fetch users
+            let users = [];
+            if (allFlaggerIds.length > 0) {
+              const { data: usersData, error: usersError } = await supabase
+                .from("users")
+                .select("user_id, username, first_name, last_name")
+                .in("user_id", allFlaggerIds);
+
+              if (usersError) {
+                console.error("❌ Users fetch error:", usersError);
+              } else {
+                users = usersData || [];
+              }
+            }
+
+            // Get bulletin posts
+            const postIds = Object.keys(groupedByPost);
+            let posts = [];
+            if (postIds.length > 0) {
+              try {
+                const { data: postsData, error: postsError } = await supabase
+                  .from("bulletin_board_posts")
+                  .select("post_id, title, caption, host_name, images")
+                  .in("post_id", postIds);
+
+                if (postsError) {
+                  console.warn("⚠️ Bulletin posts error (creating fallbacks):", postsError);
+                  posts = postIds.map(id => ({
+                    post_id: id,
+                    title: `Bulletin Post ${id.substring(0, 8)}`,
+                    caption: "Content not available",
+                    host_name: "Unknown Author",
+                    images: []
+                  }));
+                } else {
+                  posts = postsData || [];
+                }
+              } catch (err) {
+                console.warn("⚠️ Bulletin posts exception (creating fallbacks):", err);
+                posts = postIds.map(id => ({
+                  post_id: id,
+                  title: `Bulletin Post ${id.substring(0, 8)}`,
+                  caption: "Content not available",
+                  host_name: "Unknown Author",
+                  images: []
+                }));
+              }
+            }
+
+            // Create consolidated reports (one per post)
+            Object.entries(groupedByPost).forEach(([postId, reportsForPost]) => {
+              const post = posts.find(p => String(p.post_id) === String(postId));
+              const mostRecentReport = reportsForPost.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+              
+              // Get all reporters for this post
+              const allReporters = reportsForPost.map(report => {
+                const reporter = users.find(u => String(u.user_id) === String(report.flagger_id));
+                return reporter ? {
+                  id: reporter.user_id,
+                  username: reporter.username,
+                  name: [reporter.first_name, reporter.last_name].filter(Boolean).join(' ') || 'No name'
+                } : null;
+              }).filter(Boolean);
+
+              // Collect all unique reasons - filter out empty/null values
+              const allReasons = [...new Set(reportsForPost.flatMap(report => 
+                Array.isArray(report.reason) ? report.reason.filter(r => r && r.trim() !== '') : 
+                (report.reason && report.reason.trim() !== '' ? [report.reason] : [])
+              ))].filter(Boolean);
+
+              // Get first image from images array if available
+              const firstImage = post && Array.isArray(post.images) && post.images.length > 0 
+                                  ? post.images[0] 
+                                  : "no image";
+
+              consolidatedReports.push({
+                ...mostRecentReport, // Use most recent report as base
+                post: post ? {
+                  id: post.post_id,
+                  title: post.title || `Bulletin Post ${post.post_id}`,
+                  content: post.caption,
+                  author: post.host_name,
+                  image: firstImage,
+                  type: "bulletin",
+                  reportCount: reportsForPost.length
+                } : {
+                  id: "unknown",
+                  title: "Unknown Bulletin Post",
+                  content: "No content",
+                  author: "Unknown",
+                  image: "no image",
+                  type: "bulletin",
+                  reportCount: reportsForPost.length
+                },
+                allReporters: allReporters,
+                allReasons: allReasons,
+                reportType: "bulletin",
+                reportCount: reportsForPost.length,
+                // Use most recent report's created_at for sorting
+                created_at: mostRecentReport.created_at
+              });
+            });
+          }
+        } catch (err) {
+          console.error("❌ Bulletin section exception:", err);
         }
       }
 
@@ -567,10 +707,11 @@ export default function PostReport() {
                 } : null;
               }).filter(Boolean);
 
-              // Collect all unique reasons
+              // Collect all unique reasons - filter out empty/null values
               const allReasons = [...new Set(reportsForPost.flatMap(report => 
-                Array.isArray(report.reason) ? report.reason : (report.reason ? [report.reason] : [])
-              ))];
+                Array.isArray(report.reason) ? report.reason.filter(r => r && r.trim() !== '') : 
+                (report.reason && report.reason.trim() !== '' ? [report.reason] : [])
+              ))].filter(Boolean);
 
               consolidatedReports.push({
                 ...mostRecentReport, // Use most recent report as base
@@ -638,7 +779,10 @@ export default function PostReport() {
     try {
       console.log(`🔄 ${action === "penalized" ? "Penalizing" : action === "restored" ? "Restoring" : action === "revert" ? "Reverting to Pending" : "Processing"} ${reportType} report ${reportId}`);
       
-      const reportTableName = reportType === "practice" ? "practice_post_reports" : "tournament_post_reports";
+      const reportTableName = reportType === "practice" ? "practice_post_reports" : 
+                              reportType === "tournament" ? "tournament_post_reports" :
+                              reportType === "bulletin" ? "bulletin_post_reports" :
+                              "practice_post_reports";
       
       // Determine the new status
       let newStatus = action;
@@ -737,6 +881,43 @@ export default function PostReport() {
               console.warn("Practice post table not accessible:", err);
             }
           }
+        } else if (reportType === "bulletin") {
+          // Handle bulletin posts
+          if (action === "penalized") {
+            console.log("🚫 Marking bulletin as removed by admin");
+            
+            try {
+              const { error: bulletinError } = await supabase
+                .from("bulletin_board_posts")
+                .update({ removed_by_atletik_admin: true })
+                .eq("post_id", reportData.reported_id);
+
+              if (bulletinError) {
+                console.warn("Bulletin post removal failed (table might not exist or lack column):", bulletinError);
+              } else {
+                console.log("✅ Successfully marked bulletin as removed");
+              }
+            } catch (err) {
+              console.warn("Bulletin post table not accessible:", err);
+            }
+          } else if (action === "restored" || action === "revert") {
+            console.log("🔄 Restoring bulletin");
+            
+            try {
+              const { error: bulletinError } = await supabase
+                .from("bulletin_board_posts")
+                .update({ removed_by_atletik_admin: false })
+                .eq("post_id", reportData.reported_id);
+
+              if (bulletinError) {
+                console.warn("Bulletin post restoration failed:", bulletinError);
+              } else {
+                console.log("✅ Successfully restored bulletin");
+              }
+            } catch (err) {
+              console.warn("Bulletin post table not accessible:", err);
+            }
+          }
         }
       }
       
@@ -797,7 +978,7 @@ export default function PostReport() {
 
   return (
     <div style={{ minHeight: "500px", padding: "20px", fontFamily: "Arial, sans-serif" }}>
-      <h2 style={{ marginBottom: "20px" }}>Post Reports (Consolidated by Post)</h2>
+      <h2 style={{ marginBottom: "20px" }}>Post Reports</h2>
       
       <div style={{
         display: "flex",
@@ -929,7 +1110,7 @@ export default function PostReport() {
                       borderRadius: "4px",
                       fontSize: "12px",
                       fontWeight: "bold",
-                      backgroundColor: report.reportType === "tournament" ? "#e9ecef" : "#f8f9fa",
+                      backgroundColor: "#e9ecef",
                       color: "#495057",
                       textTransform: "capitalize"
                     }}>
@@ -999,7 +1180,7 @@ export default function PostReport() {
                           <div style={{ position: "relative" }}>
                             <img 
                               src={imageUrl} 
-                              alt="Tournament poster"
+                              alt={`${report.reportType} image`}
                               style={{ 
                                 width: "80px", 
                                 height: "80px", 
@@ -1071,7 +1252,7 @@ export default function PostReport() {
                             flexDirection: "column",
                             textAlign: "center"
                           }}>
-                            <div>📷</div>
+                            <div>{report.reportType === "bulletin" ? "📰" : "📷"}</div>
                             <div>No Image</div>
                           </div>
                         );
