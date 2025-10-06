@@ -1,25 +1,9 @@
 import React, { useState, useEffect } from "react";
 import supabase from "../helper/supabaseClient";
 import ImageModal from "../components/ImageModal";
-
-const statusColors = {
-  pending: { background: "#fffbe6", color: "#b59f3b", border: "1px solid #ffe58f" },
-  approved: { background: "#e6ffed", color: "#389e0d", border: "1px solid #b7eb8f" },
-  rejected: { background: "#fff1f0", color: "#cf1322", border: "1px solid #ffa39e" }
-};
-
-function StatusBadge({ status }) {
-  const style = {
-    display: "inline-block",
-    padding: "2px 12px",
-    borderRadius: 12,
-    fontSize: 13,
-    fontWeight: 500,
-    textTransform: "capitalize",
-    ...statusColors[status] || statusColors["pending"]
-  };
-  return <span style={style}>{status}</span>;
-}
+import StatusBadge from "../components/shared/StatusBadge";
+import ErrorDisplay from "../components/shared/ErrorDisplay";
+import Modal from "../components/shared/Modal";
 
 export default function ClubApplicationTable({ 
   applications, 
@@ -27,13 +11,47 @@ export default function ClubApplicationTable({
   onReject, 
   onRestore, 
   buttonStyle, 
-  bucketName 
+  bucketName,
+  currentStatus
 }) {
   const [modalImage, setModalImage] = useState({ isOpen: false, src: "", alt: "" });
   const [imageUrls, setImageUrls] = useState({});
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedApplicationId, setSelectedApplicationId] = useState(null);
+  const [clubExistsMap, setClubExistsMap] = useState({});
+  const [warningMessage, setWarningMessage] = useState("");
+
+  // Check if clubs exist in clubs table for accepted applications
+  useEffect(() => {
+    async function checkClubsExistence() {
+      const existsMap = {};
+      
+      // Only check for accepted applications
+      const acceptedApplications = applications.filter(app => app.application_status === "accepted");
+      
+      for (const app of acceptedApplications) {
+        try {
+          const { data, error } = await supabase
+            .from("clubs")
+            .select("club_id")
+            .eq("club_name", app.club_name)
+            .single();
+          
+          existsMap[app.club_application_id] = !error && data;
+        } catch (err) {
+          console.error(`Error checking club existence for ${app.club_name}:`, err);
+          existsMap[app.club_application_id] = false;
+        }
+      }
+      
+      setClubExistsMap(existsMap);
+    }
+    
+    if (applications.length > 0) {
+      checkClubsExistence();
+    }
+  }, [applications]);
 
   // Fetch image URLs exactly like UserReportTable does
   useEffect(() => {
@@ -145,8 +163,26 @@ export default function ClubApplicationTable({
   }, [imageUrls]);
 
   const handleReject = (applicationId) => {
+    // Check if club exists in clubs table
+    if (clubExistsMap[applicationId]) {
+      setWarningMessage("Cannot reject this application - the club has already been created and users may be using it.");
+      setTimeout(() => setWarningMessage(""), 5000);
+      return;
+    }
+    
     setSelectedApplicationId(applicationId);
     setShowRejectModal(true);
+  };
+
+  const handleRestore = (applicationId) => {
+    // Check if club exists in clubs table
+    if (clubExistsMap[applicationId]) {
+      setWarningMessage("Cannot restore this application - the club has already been created and users may be using it.");
+      setTimeout(() => setWarningMessage(""), 5000);
+      return;
+    }
+    
+    onRestore(applicationId);
   };
 
   const confirmReject = () => {
@@ -168,6 +204,9 @@ export default function ClubApplicationTable({
 
   return (
     <>
+      {/* Warning Message */}
+      <ErrorDisplay error={warningMessage} />
+
       <div style={{ overflowX: "auto", position: "relative" }}>
         <table style={{
           width: "100%",
@@ -190,6 +229,7 @@ export default function ClubApplicationTable({
               <th style={{ border: "1px solid #eee", padding: "10px 8px", background: "#fafafa", fontWeight: 600 }}>Owner ID Card</th>
               <th style={{ border: "1px solid #eee", padding: "10px 8px", background: "#fafafa", fontWeight: 600 }}>T&C Agreed</th>
               <th style={{ border: "1px solid #eee", padding: "10px 8px", background: "#fafafa", fontWeight: 600 }}>Status</th>
+              <th style={{ border: "1px solid #eee", padding: "10px 8px", background: "#fafafa", fontWeight: 600 }}>Club Created</th>
               <th style={{ border: "1px solid #eee", padding: "10px 8px", background: "#fafafa", fontWeight: 600 }}>Rejection Reason</th>
               <th style={{ 
                 border: "1px solid #eee", 
@@ -206,7 +246,7 @@ export default function ClubApplicationTable({
           <tbody>
             {applications.length === 0 ? (
               <tr>
-                <td colSpan="15" style={{ textAlign: "center", padding: "24px", color: "#888" }}>
+                <td colSpan="16" style={{ textAlign: "center", padding: "24px", color: "#888" }}>
                   No applications found for the selected criteria
                 </td>
               </tr>
@@ -323,6 +363,35 @@ export default function ClubApplicationTable({
                   <td style={{ border: "1px solid #eee", padding: "8px 6px", fontSize: 13 }}>
                     <StatusBadge status={item.application_status} />
                   </td>
+                  <td style={{ border: "1px solid #eee", padding: "8px 6px", fontSize: 13, textAlign: "center" }}>
+                    {clubExistsMap[item.club_application_id] ? (
+                      <span style={{
+                        display: "inline-block",
+                        padding: "2px 8px",
+                        borderRadius: 12,
+                        fontSize: 12,
+                        fontWeight: 500,
+                        background: "#e6ffed",
+                        color: "#389e0d",
+                        border: "1px solid #b7eb8f"
+                      }}>
+                        ✓ Yes
+                      </span>
+                    ) : (
+                      <span style={{
+                        display: "inline-block",
+                        padding: "2px 8px",
+                        borderRadius: 12,
+                        fontSize: 12,
+                        fontWeight: 500,
+                        background: "#f5f5f5",
+                        color: "#666",
+                        border: "1px solid #d9d9d9"
+                      }}>
+                        No
+                      </span>
+                    )}
+                  </td>
                   <td style={{ 
                     border: "1px solid #eee", 
                     padding: "8px 6px", 
@@ -346,17 +415,19 @@ export default function ClubApplicationTable({
                     minWidth: 200
                   }}>
                     <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                      {(item.application_status === "approved" || item.application_status === "rejected") ? (
+                      {(item.application_status === "accepted" || item.application_status === "rejected") ? (
                         <button
                           style={{
                             ...buttonStyle,
-                            background: "#faad14",
-                            color: "#fff",
+                            background: clubExistsMap[item.club_application_id] ? "#d9d9d9" : "#faad14",
+                            color: clubExistsMap[item.club_application_id] ? "#999" : "#fff",
                             border: "none",
                             borderRadius: 6,
-                            cursor: "pointer"
+                            cursor: clubExistsMap[item.club_application_id] ? "not-allowed" : "pointer"
                           }}
-                          onClick={() => onRestore(item.club_application_id)}
+                          onClick={() => handleRestore(item.club_application_id)}
+                          disabled={clubExistsMap[item.club_application_id]}
+                          title={clubExistsMap[item.club_application_id] ? "Cannot restore - club already exists" : "Restore application"}
                         >
                           <span style={{ width: "100%", textAlign: "center" }}>Restore</span>
                         </button>
@@ -400,76 +471,63 @@ export default function ClubApplicationTable({
       </div>
 
       {/* Rejection Modal */}
-      {showRejectModal && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "100vw",
-          height: "100vh",
-          background: "rgba(0, 0, 0, 0.5)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: "#fff",
-            padding: "24px",
-            borderRadius: "8px",
-            width: "400px",
-            maxWidth: "90vw"
-          }}>
-            <h3 style={{ marginBottom: "16px" }}>Rejection Reason</h3>
-            <textarea
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              placeholder="Please provide a reason for rejection..."
-              style={{
-                width: "100%",
-                height: "100px",
-                padding: "8px",
-                border: "1px solid #d9d9d9",
-                borderRadius: "4px",
-                fontSize: "14px",
-                resize: "vertical"
-              }}
-            />
-            <div style={{ display: "flex", gap: "8px", marginTop: "16px", justifyContent: "flex-end" }}>
-              <button
-                onClick={() => {
-                  setShowRejectModal(false);
-                  setRejectionReason("");
-                  setSelectedApplicationId(null);
-                }}
-                style={{
-                  padding: "8px 16px",
-                  background: "#fff",
-                  border: "1px solid #d9d9d9",
-                  borderRadius: "4px",
-                  cursor: "pointer"
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmReject}
-                disabled={!rejectionReason.trim()}
-                style={{
-                  padding: "8px 16px",
-                  background: rejectionReason.trim() ? "#cf1322" : "#f5f5f5",
-                  color: rejectionReason.trim() ? "#fff" : "#999",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor: rejectionReason.trim() ? "pointer" : "not-allowed"
-                }}
-              >
-                Reject
-              </button>
-            </div>
-          </div>
+      <Modal
+        isOpen={showRejectModal}
+        onClose={() => {
+          setShowRejectModal(false);
+          setRejectionReason("");
+          setSelectedApplicationId(null);
+        }}
+        title="Rejection Reason"
+        showDefaultButtons={false}
+      >
+        <textarea
+          value={rejectionReason}
+          onChange={(e) => setRejectionReason(e.target.value)}
+          placeholder="Please provide a reason for rejection..."
+          style={{
+            width: "100%",
+            height: "100px",
+            padding: "8px",
+            border: "1px solid #d9d9d9",
+            borderRadius: "4px",
+            fontSize: "14px",
+            resize: "vertical"
+          }}
+        />
+        <div style={{ display: "flex", gap: "8px", marginTop: "16px", justifyContent: "flex-end" }}>
+          <button
+            onClick={() => {
+              setShowRejectModal(false);
+              setRejectionReason("");
+              setSelectedApplicationId(null);
+            }}
+            style={{
+              padding: "8px 16px",
+              background: "#fff",
+              border: "1px solid #d9d9d9",
+              borderRadius: "4px",
+              cursor: "pointer"
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={confirmReject}
+            disabled={!rejectionReason.trim()}
+            style={{
+              padding: "8px 16px",
+              background: rejectionReason.trim() ? "#cf1322" : "#f5f5f5",
+              color: rejectionReason.trim() ? "#fff" : "#999",
+              border: "none",
+              borderRadius: "4px",
+              cursor: rejectionReason.trim() ? "pointer" : "not-allowed"
+            }}
+          >
+            Reject
+          </button>
         </div>
-      )}
+      </Modal>
 
       <ImageModal
         src={modalImage.src}

@@ -6,6 +6,7 @@ import ProfileReports from "./ProfileReports";
 import PostReport from "./PostReport";
 import Applications from "./Applications";
 import AdminTable from "./AdminTable"; // Add this import
+import Sports from "./Sports"; // Add this import
 import "./admin.css";
 
 function Dashboard() {
@@ -52,7 +53,11 @@ function Dashboard() {
         <h2>Admin Panel</h2>
         <p>{adminEmail}</p>
         <button className="sidebar-btn" onClick={() => handleTableSelect("admin")}>
-          Admin Table
+          Admin Accounts
+        </button>
+        
+        <button className="sidebar-btn" onClick={() => handleTableSelect("sports")}>
+          Sports
         </button>
         
         {/* Applications Dropdown */}
@@ -129,6 +134,13 @@ function Dashboard() {
           {selectedTable === "admin" && (
             <div className="table-container">
               <AdminTable />
+            </div>
+          )}
+
+          {/* Sports */}
+          {selectedTable === "sports" && (
+            <div className="table-container">
+              <Sports />
             </div>
           )}
 

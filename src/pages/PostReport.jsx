@@ -1,7 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import supabase from "../helper/supabaseClient";
 
-// Constants (unchanged)
+// UPDATED VERSION - Check console for "=== UPDATED POSTREPORT LOADED ==="
+console.log("=== UPDATED POSTREPORT LOADED - CONSOLIDATED VERSION WITH BULLETIN ===");
+
+// Constants
 const TIME_FILTERS = [
   { label: "All Time", value: "all" },
   { label: "Today", value: "day" },
@@ -12,7 +15,7 @@ const TIME_FILTERS = [
 const STATUS_OPTIONS = [
   { label: "All Status", value: "all" },
   { label: "Pending", value: "pending" },
-  { label: "Approved", value: "approved" },
+  { label: "Penalized", value: "penalized" },
   { label: "Rejected", value: "rejected" },
 ];
 
@@ -20,20 +23,23 @@ const REPORT_TYPE_OPTIONS = [
   { label: "All Reports", value: "all" },
   { label: "Practice Reports", value: "practice" },
   { label: "Tournament Reports", value: "tournament" },
+  { label: "Bulletin Reports", value: "bulletin" },
 ];
 
 const SORT_OPTIONS = [
   { label: "Most Recent", value: "recent" },
   { label: "Oldest", value: "oldest" },
+  { label: "Most Reports", value: "most_reports" },
+  { label: "Least Reports", value: "least_reports" },
 ];
 
-// Default values (unchanged)
+// Default values
 const DEFAULT_SORT = "recent";
 const DEFAULT_TIME_FILTER = "all";
 const DEFAULT_STATUS_FILTER = "all";
 const DEFAULT_REPORT_TYPE_FILTER = "all";
 
-// Helper functions (unchanged)
+// Helper functions
 const getTimeFilter = (timeFilter) => {
   const now = new Date();
   switch (timeFilter) {
@@ -54,7 +60,7 @@ const getTimeFilter = (timeFilter) => {
   }
 };
 
-// Dropdown component (unchanged)
+// Dropdown component
 function DropdownButton({
   label,
   options,
@@ -133,6 +139,24 @@ function DropdownButton({
 
 // Image Modal Component
 function ImageModal({ imageUrl, onClose }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (imageUrl) {
+      setLoading(true);
+      setError(false);
+      
+      const img = new Image();
+      img.src = imageUrl;
+      img.onload = () => setLoading(false);
+      img.onerror = () => {
+        setLoading(false);
+        setError(true);
+      };
+    }
+  }, [imageUrl]);
+
   if (!imageUrl) return null;
 
   return (
@@ -143,7 +167,7 @@ function ImageModal({ imageUrl, onClose }) {
         left: 0,
         width: "100vw",
         height: "100vh",
-        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        backgroundColor: "rgba(0, 0, 0, 0.9)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -184,20 +208,45 @@ function ImageModal({ imageUrl, onClose }) {
         >
           ×
         </button>
-        <img
-          src={imageUrl}
-          alt="Enlarged view"
-          style={{
-            maxWidth: "100%",
-            maxHeight: "100%",
-            objectFit: "contain",
+        
+        {loading && (
+          <div style={{
+            width: "100px",
+            height: "100px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "white"
+          }}>
+            Loading...
+          </div>
+        )}
+        
+        {error && (
+          <div style={{
+            padding: "20px",
+            backgroundColor: "rgba(255, 255, 255, 0.1)",
             borderRadius: "8px",
-            boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)"
-          }}
-          onError={(e) => {
-            e.target.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIxIDEyQzIxIDEyLjc0IDIwLjc5IDEzLjQxIDIwLjQxIDEzLjk5TDE4IDExLjU4VjhIMTQuOTJMMTMuNjYgNi43NEMxMy4yNiA2LjM0IDEyLjc0IDYuMTQgMTIuMjEgNi4xNEgxMC43OUM5Ljc5IDYuMTQgOSA2LjkzIDkgNy45M1YxNi4wN0M5IDE3LjA3IDkuNzkgMTcuODYgMTAuNzkgMTcuODZIMTYuMjFDMTcuMjEgMTcuODYgMTggMTcuMDcgMTggMTYuMDdWMTUuNDJMMjAuNDEgMTcuODNDMjAuNzkgMTguNDEgMjEgMTkuMjYgMjEgMTlWMTJaTTMgNUwxMC41OSAxMi41OSAxNiAxN0wxOS41IDE2LjVMMjEgMThWMTlDMjEgMTkuNTUgMjAuNTUgMjAgMjAgMjBIM0MzLjQ1IDIwIDMgMTkuNTUgMyAxOVY2QzMgNS40NSAzLjQ1IDUgNCA1SDNaIiBmaWxsPSIjOTk5Ii8+Cjwvc3ZnPgo=";
-          }}
-        />
+            color: "white",
+            textAlign: "center"
+          }}>
+            Failed to load image
+          </div>
+        )}
+        
+        {!loading && !error && (
+          <img
+            src={imageUrl}
+            alt="Enlarged view"
+            style={{
+              maxWidth: "100%",
+              maxHeight: "100%",
+              objectFit: "contain",
+              borderRadius: "8px",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)"
+            }}
+          />
+        )}
       </div>
     </div>
   );
@@ -205,7 +254,6 @@ function ImageModal({ imageUrl, onClose }) {
 
 // Main component
 export default function PostReport() {
-  // State (unchanged)
   const [reports, setReports] = useState([]);
   const [sortBy, setSortBy] = useState(DEFAULT_SORT);
   const [timeFilter, setTimeFilter] = useState(DEFAULT_TIME_FILTER);
@@ -213,33 +261,25 @@ export default function PostReport() {
   const [reportTypeFilter, setReportTypeFilter] = useState(DEFAULT_REPORT_TYPE_FILTER);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [actionModal, setActionModal] = useState({ 
-    open: false, 
-    reportId: null, 
-    postId: null, 
-    action: "",
-    reportType: null
-  });
 
-  // Add image modal state
   const [imageModal, setImageModal] = useState({
     open: false,
     imageUrl: null
   });
 
-  // Dropdown states (unchanged)
+  // Dropdown states
   const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
   const [timeDropdownOpen, setTimeDropdownOpen] = useState(false);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
 
-  // Refs (unchanged)
+  // Refs
   const typeDropdownRef = useRef(null);
   const sortDropdownRef = useRef(null);
   const timeDropdownRef = useRef(null);
   const statusDropdownRef = useRef(null);
 
-  // Reset all filters to default (unchanged)
+  // Reset filters
   const resetFilters = useCallback(() => {
     setSortBy(DEFAULT_SORT);
     setTimeFilter(DEFAULT_TIME_FILTER);
@@ -247,241 +287,481 @@ export default function PostReport() {
     setReportTypeFilter(DEFAULT_REPORT_TYPE_FILTER);
   }, []);
 
-  // Helper function to safely query by IDs
-  const safeQueryByIds = async (table, selectClause, ids, idColumn = 'id') => {
-    if (!ids || ids.length === 0) {
-      return { data: [], error: null };
-    }
-
-    // Remove duplicates and filter out null/undefined values
-    const uniqueIds = [...new Set(ids.filter(Boolean))];
-    
-    if (uniqueIds.length === 0) {
-      return { data: [], error: null };
-    }
-
-    let query = supabase.from(table).select(selectClause);
-    
-    if (uniqueIds.length === 1) {
-      query = query.eq(idColumn, uniqueIds[0]);
-    } else {
-      query = query.in(idColumn, uniqueIds);
-    }
-    
-    return await query;
-  };
-
-  // Helper function to get full image URL
+  // Helper function to get full image URL - WITH ENHANCED DEBUGGING
   const getImageUrl = (imagePath) => {
-    if (!imagePath || imagePath === "no image") return null;
+    console.log(`🔍 Processing image path: "${imagePath}"`);
+    
+    if (!imagePath || imagePath === "no image" || imagePath === null) {
+      console.log(`❌ Invalid image path: ${imagePath}`);
+      return null;
+    }
     
     // If it's already a full URL, return as is
     if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+      console.log(`✅ Already full URL: ${imagePath}`);
       return imagePath;
     }
     
-    // If it's a Supabase storage path, construct the full URL
-    // Adjust this based on your Supabase storage configuration
-    if (imagePath.startsWith('tournament-posters/')) {
-      return `${supabase.storage.from('tournament-posters').getPublicUrl(imagePath).data.publicUrl}`;
+    // Try tournament-posts bucket first
+    try {
+      const { data } = supabase.storage.from('tournament-posts').getPublicUrl(imagePath);
+      if (data && data.publicUrl) {
+        console.log(`✅ Image URL generated from 'tournament-posts': ${data.publicUrl}`);
+        return data.publicUrl;
+      }
+    } catch (err) {
+      console.error(`❌ Error with tournament-posts bucket:`, err);
     }
     
-    // Default fallback - might need adjustment based on your setup
-    return imagePath;
+    // Try profile-images as fallback
+    try {
+      const { data } = supabase.storage.from('profile-images').getPublicUrl(imagePath);
+      if (data && data.publicUrl) {
+        console.log(`✅ Image URL generated from 'profile-images': ${data.publicUrl}`);
+        return data.publicUrl;
+      }
+    } catch (err) {
+      console.error(`❌ Error with profile-images bucket:`, err);
+    }
+    
+    // Try practice-posts bucket for practice images
+    try {
+      const { data } = supabase.storage.from('practice-posts').getPublicUrl(imagePath);
+      if (data && data.publicUrl) {
+        console.log(`✅ Image URL generated from 'practice-posts': ${data.publicUrl}`);
+        return data.publicUrl;
+      }
+    } catch (err) {
+      console.error(`❌ Error with practice-posts bucket:`, err);
+    }
+    
+    console.warn(`⚠️ All buckets failed for path: ${imagePath}`);
+    return null;
   };
 
-  // Fetch reports function - UPDATED to get title from posts
+  // UUID validation
+  const validateUUID = (uuid) => {
+    if (!uuid || typeof uuid !== 'string') return false;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(uuid);
+  };
+
+  const sanitizeUUIDArray = (uuids) => {
+    if (!Array.isArray(uuids)) return [];
+    return [...new Set(uuids.filter(validateUUID))];
+  };
+
+  // MAIN FETCH FUNCTION - REWRITTEN TO CONSOLIDATE BY POST
   const fetchReports = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      
+      console.log("=== FETCH REPORTS STARTED (CONSOLIDATED VERSION WITH BULLETIN) ===");
 
-      // Build time filter
       const fromDate = getTimeFilter(timeFilter);
+      let consolidatedReports = [];
 
-      let practiceReports = [];
-      let tournamentReports = [];
-
-      // Fetch from practice_post_reports
+      // === PRACTICE REPORTS ===
       if (reportTypeFilter === "all" || reportTypeFilter === "practice") {
         try {
-          let practiceQuery = supabase
-            .from("practice_post_reports")
-            .select(`*`);
-
-          if (fromDate) {
-            practiceQuery = practiceQuery.gte("created_at", fromDate.toISOString());
-          }
-
-          if (statusFilter !== "all") {
-            practiceQuery = practiceQuery.eq("approval_status", statusFilter);
-          }
-
-          const { data: practiceData, error: practiceError } = await practiceQuery;
+          console.log("🔄 Fetching practice reports...");
           
-          if (practiceError) {
-            console.error("Error fetching practice reports:", practiceError);
-          } else if (practiceData && practiceData.length > 0) {
-            // Get all practice post IDs from reports
-            const practicePostIds = practiceData.map(report => report.reported_id).filter(Boolean);
+          let practiceQuery = supabase.from("practice_post_reports").select("*");
+          if (fromDate) practiceQuery = practiceQuery.gte("created_at", fromDate.toISOString());
+          if (statusFilter !== "all") practiceQuery = practiceQuery.eq("approval_status", statusFilter);
+
+          const { data: practiceReportsData, error: practiceReportsError } = await practiceQuery;
+          
+          if (practiceReportsError) {
+            console.error("❌ Practice reports error:", practiceReportsError);
+          } else if (practiceReportsData && practiceReportsData.length > 0) {
+            console.log("✅ Practice reports found:", practiceReportsData.length);
             
-            // Fetch practice posts data - UPDATED to include title
-            let practicePostsData = [];
-            if (practicePostIds.length > 0) {
-              const { data: practicePosts, error: practicePostsError } = await safeQueryByIds(
-                "practice_posts", 
-                "practice_id, title, caption, host_name", // Added title column
-                practicePostIds,
-                "practice_id"
-              );
-              
-              if (!practicePostsError && practicePosts) {
-                practicePostsData = practicePosts;
+            // Group reports by post ID
+            const groupedByPost = {};
+            practiceReportsData.forEach(report => {
+              if (report.reported_id) {
+                if (!groupedByPost[report.reported_id]) {
+                  groupedByPost[report.reported_id] = [];
+                }
+                groupedByPost[report.reported_id].push(report);
+              }
+            });
+
+            // Get unique valid flagger IDs from all reports
+            const allFlaggerIds = sanitizeUUIDArray(practiceReportsData.map(r => r.flagger_id));
+            
+            // Fetch users
+            let users = [];
+            if (allFlaggerIds.length > 0) {
+              const { data: usersData, error: usersError } = await supabase
+                .from("users")
+                .select("user_id, username, first_name, last_name")
+                .in("user_id", allFlaggerIds);
+
+              if (usersError) {
+                console.error("❌ Users fetch error:", usersError);
               } else {
-                console.error("Error fetching practice posts:", practicePostsError);
+                users = usersData || [];
               }
             }
 
-            // Fetch reporter data
-            const reporterIds = practiceData.map(report => report.flagger_id).filter(Boolean);
-            let reportersData = [];
-            
-            if (reporterIds.length > 0) {
-              const { data: reporters, error: reportersError } = await safeQueryByIds(
-                "users", 
-                "id, name, username, email", 
-                reporterIds
-              );
-              
-              if (!reportersError && reporters) {
-                reportersData = reporters;
-              } else {
-                console.error("Error fetching reporters:", reportersError);
+            // Get practice posts
+            const postIds = Object.keys(groupedByPost);
+            let posts = [];
+            if (postIds.length > 0) {
+              try {
+                const { data: postsData, error: postsError } = await supabase
+                  .from("practice_posts")
+                  .select("practice_id, title, caption, host_name")
+                  .in("practice_id", postIds);
+
+                if (postsError) {
+                  console.warn("⚠️ Practice posts error (creating fallbacks):", postsError);
+                  posts = postIds.map(id => ({
+                    practice_id: id,
+                    title: `Practice Post ${id.substring(0, 8)}`,
+                    caption: "Content not available",
+                    host_name: "Unknown Host"
+                  }));
+                } else {
+                  posts = postsData || [];
+                }
+              } catch (err) {
+                console.warn("⚠️ Practice posts exception (creating fallbacks):", err);
+                posts = postIds.map(id => ({
+                  practice_id: id,
+                  title: `Practice Post ${id.substring(0, 8)}`,
+                  caption: "Content not available",
+                  host_name: "Unknown Host"
+                }));
               }
             }
 
-            // Combine report data with post and reporter data
-            practiceReports = practiceData.map(report => {
-              const post = practicePostsData.find(p => p.practice_id === report.reported_id);
-              const reporter = reportersData.find(u => u.id === report.flagger_id);
+            // Create consolidated reports (one per post)
+            Object.entries(groupedByPost).forEach(([postId, reportsForPost]) => {
+              const post = posts.find(p => String(p.practice_id) === String(postId));
+              const mostRecentReport = reportsForPost.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
               
-              return {
-                ...report,
+              // Get all reporters for this post
+              const allReporters = reportsForPost.map(report => {
+                const reporter = users.find(u => String(u.user_id) === String(report.flagger_id));
+                return reporter ? {
+                  id: reporter.user_id,
+                  username: reporter.username,
+                  name: [reporter.first_name, reporter.last_name].filter(Boolean).join(' ') || 'No name'
+                } : null;
+              }).filter(Boolean);
+
+              // Collect all unique reasons - filter out empty/null values
+              const allReasons = [...new Set(reportsForPost.flatMap(report => 
+                Array.isArray(report.reason) ? report.reason.filter(r => r && r.trim() !== '') : 
+                (report.reason && report.reason.trim() !== '' ? [report.reason] : [])
+              ))].filter(Boolean);
+
+              consolidatedReports.push({
+                ...mostRecentReport, // Use most recent report as base
                 post: post ? {
                   id: post.practice_id,
-                  title: post.title || `Practice Post ${post.practice_id}`, // Use title from DB
+                  title: post.title || `Practice Post ${post.practice_id}`,
                   content: post.caption,
                   author: post.host_name,
-                  image: "no image", // As requested for practice posts
-                  type: "practice"
-                } : null,
-                reporter: reporter || null,
-                reportType: "practice"
-              };
+                  image: "no image",
+                  type: "practice",
+                  reportCount: reportsForPost.length
+                } : {
+                  id: "unknown",
+                  title: "Unknown Practice Post",
+                  content: "No content",
+                  author: "Unknown",
+                  image: "no image",
+                  type: "practice",
+                  reportCount: reportsForPost.length
+                },
+                allReporters: allReporters,
+                allReasons: allReasons,
+                reportType: "practice",
+                reportCount: reportsForPost.length,
+                // Use most recent report's created_at for sorting
+                created_at: mostRecentReport.created_at
+              });
             });
           }
         } catch (err) {
-          console.error("Error in practice reports section:", err);
+          console.error("❌ Practice section exception:", err);
         }
       }
 
-      // Fetch from tournament_post_reports
+      // === BULLETIN REPORTS ===
+      if (reportTypeFilter === "all" || reportTypeFilter === "bulletin") {
+        try {
+          console.log("🔄 Fetching bulletin reports...");
+          
+          let bulletinQuery = supabase.from("bulletin_post_reports").select("*");
+          if (fromDate) bulletinQuery = bulletinQuery.gte("created_at", fromDate.toISOString());
+          if (statusFilter !== "all") bulletinQuery = bulletinQuery.eq("approval_status", statusFilter);
+
+          const { data: bulletinReportsData, error: bulletinReportsError } = await bulletinQuery;
+          
+          if (bulletinReportsError) {
+            console.error("❌ Bulletin reports error:", bulletinReportsError);
+          } else if (bulletinReportsData && bulletinReportsData.length > 0) {
+            console.log("✅ Bulletin reports found:", bulletinReportsData.length);
+            
+            // Group reports by post ID
+            const groupedByPost = {};
+            bulletinReportsData.forEach(report => {
+              if (report.reported_id) {
+                if (!groupedByPost[report.reported_id]) {
+                  groupedByPost[report.reported_id] = [];
+                }
+                groupedByPost[report.reported_id].push(report);
+              }
+            });
+
+            // Get unique valid flagger IDs from all reports
+            const allFlaggerIds = sanitizeUUIDArray(bulletinReportsData.map(r => r.flagger_id));
+            
+            // Fetch users
+            let users = [];
+            if (allFlaggerIds.length > 0) {
+              const { data: usersData, error: usersError } = await supabase
+                .from("users")
+                .select("user_id, username, first_name, last_name")
+                .in("user_id", allFlaggerIds);
+
+              if (usersError) {
+                console.error("❌ Users fetch error:", usersError);
+              } else {
+                users = usersData || [];
+              }
+            }
+
+            // Get bulletin posts
+            const postIds = Object.keys(groupedByPost);
+            let posts = [];
+            if (postIds.length > 0) {
+              try {
+                const { data: postsData, error: postsError } = await supabase
+                  .from("bulletin_board_posts")
+                  .select("post_id, title, caption, host_name, images")
+                  .in("post_id", postIds);
+
+                if (postsError) {
+                  console.warn("⚠️ Bulletin posts error (creating fallbacks):", postsError);
+                  posts = postIds.map(id => ({
+                    post_id: id,
+                    title: `Bulletin Post ${id.substring(0, 8)}`,
+                    caption: "Content not available",
+                    host_name: "Unknown Author",
+                    images: []
+                  }));
+                } else {
+                  posts = postsData || [];
+                }
+              } catch (err) {
+                console.warn("⚠️ Bulletin posts exception (creating fallbacks):", err);
+                posts = postIds.map(id => ({
+                  post_id: id,
+                  title: `Bulletin Post ${id.substring(0, 8)}`,
+                  caption: "Content not available",
+                  host_name: "Unknown Author",
+                  images: []
+                }));
+              }
+            }
+
+            // Create consolidated reports (one per post)
+            Object.entries(groupedByPost).forEach(([postId, reportsForPost]) => {
+              const post = posts.find(p => String(p.post_id) === String(postId));
+              const mostRecentReport = reportsForPost.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+              
+              // Get all reporters for this post
+              const allReporters = reportsForPost.map(report => {
+                const reporter = users.find(u => String(u.user_id) === String(report.flagger_id));
+                return reporter ? {
+                  id: reporter.user_id,
+                  username: reporter.username,
+                  name: [reporter.first_name, reporter.last_name].filter(Boolean).join(' ') || 'No name'
+                } : null;
+              }).filter(Boolean);
+
+              // Collect all unique reasons - filter out empty/null values
+              const allReasons = [...new Set(reportsForPost.flatMap(report => 
+                Array.isArray(report.reason) ? report.reason.filter(r => r && r.trim() !== '') : 
+                (report.reason && report.reason.trim() !== '' ? [report.reason] : [])
+              ))].filter(Boolean);
+
+              // Get first image from images array if available
+              const firstImage = post && Array.isArray(post.images) && post.images.length > 0 
+                                  ? post.images[0] 
+                                  : "no image";
+
+              consolidatedReports.push({
+                ...mostRecentReport, // Use most recent report as base
+                post: post ? {
+                  id: post.post_id,
+                  title: post.title || `Bulletin Post ${post.post_id}`,
+                  content: post.caption,
+                  author: post.host_name,
+                  image: firstImage,
+                  type: "bulletin",
+                  reportCount: reportsForPost.length
+                } : {
+                  id: "unknown",
+                  title: "Unknown Bulletin Post",
+                  content: "No content",
+                  author: "Unknown",
+                  image: "no image",
+                  type: "bulletin",
+                  reportCount: reportsForPost.length
+                },
+                allReporters: allReporters,
+                allReasons: allReasons,
+                reportType: "bulletin",
+                reportCount: reportsForPost.length,
+                // Use most recent report's created_at for sorting
+                created_at: mostRecentReport.created_at
+              });
+            });
+          }
+        } catch (err) {
+          console.error("❌ Bulletin section exception:", err);
+        }
+      }
+
+      // === TOURNAMENT REPORTS ===
       if (reportTypeFilter === "all" || reportTypeFilter === "tournament") {
         try {
-          let tournamentQuery = supabase
-            .from("tournament_post_reports")
-            .select(`*`);
-
-          if (fromDate) {
-            tournamentQuery = tournamentQuery.gte("created_at", fromDate.toISOString());
-          }
-
-          if (statusFilter !== "all") {
-            tournamentQuery = tournamentQuery.eq("approval_status", statusFilter);
-          }
-
-          const { data: tournamentData, error: tournamentError } = await tournamentQuery;
+          console.log("🔄 Fetching tournament reports...");
           
-          if (tournamentError) {
-            console.error("Error fetching tournament reports:", tournamentError);
-          } else if (tournamentData && tournamentData.length > 0) {
-            // Get all tournament post IDs from reports
-            const tournamentPostIds = tournamentData.map(report => report.reported_id).filter(Boolean);
+          let tournamentQuery = supabase.from("tournament_post_reports").select("*");
+          if (fromDate) tournamentQuery = tournamentQuery.gte("created_at", fromDate.toISOString());
+          if (statusFilter !== "all") tournamentQuery = tournamentQuery.eq("approval_status", statusFilter);
+
+          const { data: tournamentReportsData, error: tournamentReportsError } = await tournamentQuery;
+          
+          if (tournamentReportsError) {
+            console.error("❌ Tournament reports error:", tournamentReportsError);
+          } else if (tournamentReportsData && tournamentReportsData.length > 0) {
+            console.log("✅ Tournament reports found:", tournamentReportsData.length);
             
-            // Fetch tournament posts data - UPDATED to include title
-            let tournamentPostsData = [];
-            if (tournamentPostIds.length > 0) {
-              const { data: tournamentPosts, error: tournamentPostsError } = await safeQueryByIds(
-                "tournament_posts", 
-                "tournament_id, title, caption, poster_image, host_name", // Added title column
-                tournamentPostIds,
-                "tournament_id"
-              );
-              
-              if (!tournamentPostsError && tournamentPosts) {
-                tournamentPostsData = tournamentPosts;
+            // Group reports by post ID
+            const groupedByPost = {};
+            tournamentReportsData.forEach(report => {
+              if (report.reported_id) {
+                if (!groupedByPost[report.reported_id]) {
+                  groupedByPost[report.reported_id] = [];
+                }
+                groupedByPost[report.reported_id].push(report);
+              }
+            });
+
+            // Get unique valid flagger IDs from all reports
+            const allFlaggerIds = sanitizeUUIDArray(tournamentReportsData.map(r => r.flagger_id));
+            
+            // Fetch users
+            let users = [];
+            if (allFlaggerIds.length > 0) {
+              const { data: usersData, error: usersError } = await supabase
+                .from("users")
+                .select("user_id, username, first_name, last_name")
+                .in("user_id", allFlaggerIds);
+
+              if (usersError) {
+                console.error("❌ Users fetch error:", usersError);
               } else {
-                console.error("Error fetching tournament posts:", tournamentPostsError);
+                users = usersData || [];
               }
             }
 
-            // Fetch reporter data
-            const reporterIds = tournamentData.map(report => report.flagger_id).filter(Boolean);
-            let reportersData = [];
-            
-            if (reporterIds.length > 0) {
-              const { data: reporters, error: reportersError } = await safeQueryByIds(
-                "users", 
-                "id, name, username, email", 
-                reporterIds
-              );
-              
-              if (!reportersError && reporters) {
-                reportersData = reporters;
+            // Get tournament posts
+            const postIds = Object.keys(groupedByPost);
+            let posts = [];
+            if (postIds.length > 0) {
+              const { data: postsData, error: postsError } = await supabase
+                .from("tournament_posts")
+                .select("tournament_id, title, caption, poster_image, host_name")
+                .in("tournament_id", postIds);
+
+              if (postsError) {
+                console.error("❌ Tournament posts error:", postsError);
               } else {
-                console.error("Error fetching reporters:", reportersError);
+                posts = postsData || [];
               }
             }
 
-            // Combine report data with post and reporter data
-            tournamentReports = tournamentData.map(report => {
-              const post = tournamentPostsData.find(p => p.tournament_id === report.reported_id);
-              const reporter = reportersData.find(u => u.id === report.flagger_id);
+            // Create consolidated reports (one per post)
+            Object.entries(groupedByPost).forEach(([postId, reportsForPost]) => {
+              const post = posts.find(p => String(p.tournament_id) === String(postId));
+              const mostRecentReport = reportsForPost.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
               
-              return {
-                ...report,
+              // Get all reporters for this post
+              const allReporters = reportsForPost.map(report => {
+                const reporter = users.find(u => String(u.user_id) === String(report.flagger_id));
+                return reporter ? {
+                  id: reporter.user_id,
+                  username: reporter.username,
+                  name: [reporter.first_name, reporter.last_name].filter(Boolean).join(' ') || 'No name'
+                } : null;
+              }).filter(Boolean);
+
+              // Collect all unique reasons - filter out empty/null values
+              const allReasons = [...new Set(reportsForPost.flatMap(report => 
+                Array.isArray(report.reason) ? report.reason.filter(r => r && r.trim() !== '') : 
+                (report.reason && report.reason.trim() !== '' ? [report.reason] : [])
+              ))].filter(Boolean);
+
+              consolidatedReports.push({
+                ...mostRecentReport, // Use most recent report as base
                 post: post ? {
                   id: post.tournament_id,
-                  title: post.title || `Tournament Post ${post.tournament_id}`, // Use title from DB
+                  title: post.title || `Tournament Post ${post.tournament_id}`,
                   content: post.caption,
                   author: post.host_name,
-                  image: post.poster_image, // This should contain the image URL/path
-                  type: "tournament"
-                } : null,
-                reporter: reporter || null,
-                reportType: "tournament"
-              };
+                  image: post.poster_image,
+                  type: "tournament",
+                  reportCount: reportsForPost.length
+                } : {
+                  id: "unknown",
+                  title: "Unknown Tournament Post",
+                  content: "No content",
+                  author: "Unknown",
+                  image: null,
+                  type: "tournament",
+                  reportCount: reportsForPost.length
+                },
+                allReporters: allReporters,
+                allReasons: allReasons,
+                reportType: "tournament",
+                reportCount: reportsForPost.length,
+                // Use most recent report's created_at for sorting
+                created_at: mostRecentReport.created_at
+              });
             });
           }
         } catch (err) {
-          console.error("Error in tournament reports section:", err);
+          console.error("❌ Tournament section exception:", err);
         }
       }
 
-      // Combine reports
-      const allReports = [...practiceReports, ...tournamentReports];
-
-      // Sort
+      // Sort consolidated reports
       if (sortBy === "recent") {
-        allReports.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        consolidatedReports.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       } else if (sortBy === "oldest") {
-        allReports.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        consolidatedReports.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      } else if (sortBy === "most_reports") {
+        consolidatedReports.sort((a, b) => b.reportCount - a.reportCount);
+      } else if (sortBy === "least_reports") {
+        consolidatedReports.sort((a, b) => a.reportCount - b.reportCount);
       }
 
-      setReports(allReports);
+      console.log("✅ Final consolidated reports:", consolidatedReports.length);
+      setReports(consolidatedReports);
 
     } catch (err) {
-      console.error("Error fetching post reports:", err);
+      console.error("❌ Fetch reports error:", err);
       setError(err.message || "Failed to fetch post reports");
       setReports([]);
     } finally {
@@ -489,78 +769,166 @@ export default function PostReport() {
     }
   }, [sortBy, timeFilter, statusFilter, reportTypeFilter]);
 
-  // Handle refresh button click (unchanged)
+  // Handle refresh
   const handleRefresh = useCallback(() => {
     resetFilters();
   }, [resetFilters]);
 
-  // Update report status (unchanged)
+  // Handle report action with post removal/restoration
   const handleReportAction = useCallback(async (reportId, action, reportType) => {
     try {
-      const tableName = reportType === "practice" ? "practice_post_reports" : "tournament_post_reports";
+      console.log(`🔄 ${action === "penalized" ? "Penalizing" : action === "restored" ? "Restoring" : action === "revert" ? "Reverting to Pending" : "Processing"} ${reportType} report ${reportId}`);
       
-      const { error } = await supabase
-        .from(tableName)
-        .update({ approval_status: action })
-        .eq("report_id", reportId);
+      const reportTableName = reportType === "practice" ? "practice_post_reports" : 
+                              reportType === "tournament" ? "tournament_post_reports" :
+                              reportType === "bulletin" ? "bulletin_post_reports" :
+                              "practice_post_reports";
+      
+      // Determine the new status
+      let newStatus = action;
+      if (action === "restored") {
+        newStatus = "pending";
+      } else if (action === "revert") {
+        newStatus = "pending";
+      }
+      
+      // Update ALL reports for this post (since we're showing consolidated view)
+      const { data: reportData, error: getReportError } = await supabase
+        .from(reportTableName)
+        .select("reported_id")
+        .eq("report_id", reportId)
+        .single();
 
-      if (error) throw error;
+      if (getReportError) {
+        console.error("Error getting report data:", getReportError);
+        throw getReportError;
+      }
+
+      if (reportData?.reported_id) {
+        // Update ALL reports for this post
+        const { error: reportError } = await supabase
+          .from(reportTableName)
+          .update({ approval_status: newStatus })
+          .eq("reported_id", reportData.reported_id);
+
+        if (reportError) throw reportError;
+
+        console.log(`📋 Found reported ${reportType} ID:`, reportData.reported_id);
+
+        if (reportType === "tournament") {
+          // Handle tournament posts - Only update tournaments table since tournament_posts is a view
+          if (action === "penalized") {
+            console.log("🚫 Marking tournament as removed by admin");
+            
+            const { error: tournamentError } = await supabase
+              .from("tournaments")
+              .update({ removed_by_atletik_admin: true })
+              .eq("tournament_id", reportData.reported_id);
+
+            if (tournamentError) {
+              console.error("Error updating tournament:", tournamentError);
+            } else {
+              console.log("✅ Successfully marked tournament as removed");
+            }
+          } else if (action === "restored" || action === "revert") {
+            console.log("🔄 Restoring tournament");
+            
+            const { error: tournamentError } = await supabase
+              .from("tournaments")
+              .update({ removed_by_atletik_admin: false })
+              .eq("tournament_id", reportData.reported_id);
+
+            if (tournamentError) {
+              console.error("Error restoring tournament:", tournamentError);
+            } else {
+              console.log("✅ Successfully restored tournament");
+            }
+          }
+        } else if (reportType === "practice") {
+          // Handle practice posts
+          if (action === "penalized") {
+            console.log("🚫 Marking practice as removed by admin");
+            
+            try {
+              const { error: practiceError } = await supabase
+                .from("practice_posts")
+                .update({ removed_by_atletik_admin: true })
+                .eq("practice_id", reportData.reported_id);
+
+              if (practiceError) {
+                console.warn("Practice post removal failed (table might not exist or lack column):", practiceError);
+              } else {
+                console.log("✅ Successfully marked practice as removed");
+              }
+            } catch (err) {
+              console.warn("Practice post table not accessible:", err);
+            }
+          } else if (action === "restored" || action === "revert") {
+            console.log("🔄 Restoring practice");
+            
+            try {
+              const { error: practiceError } = await supabase
+                .from("practice_posts")
+                .update({ removed_by_atletik_admin: false })
+                .eq("practice_id", reportData.reported_id);
+
+              if (practiceError) {
+                console.warn("Practice post restoration failed:", practiceError);
+              } else {
+                console.log("✅ Successfully restored practice");
+              }
+            } catch (err) {
+              console.warn("Practice post table not accessible:", err);
+            }
+          }
+        } else if (reportType === "bulletin") {
+          // Handle bulletin posts
+          if (action === "penalized") {
+            console.log("🚫 Marking bulletin as removed by admin");
+            
+            try {
+              const { error: bulletinError } = await supabase
+                .from("bulletin_board_posts")
+                .update({ removed_by_atletik_admin: true })
+                .eq("post_id", reportData.reported_id);
+
+              if (bulletinError) {
+                console.warn("Bulletin post removal failed (table might not exist or lack column):", bulletinError);
+              } else {
+                console.log("✅ Successfully marked bulletin as removed");
+              }
+            } catch (err) {
+              console.warn("Bulletin post table not accessible:", err);
+            }
+          } else if (action === "restored" || action === "revert") {
+            console.log("🔄 Restoring bulletin");
+            
+            try {
+              const { error: bulletinError } = await supabase
+                .from("bulletin_board_posts")
+                .update({ removed_by_atletik_admin: false })
+                .eq("post_id", reportData.reported_id);
+
+              if (bulletinError) {
+                console.warn("Bulletin post restoration failed:", bulletinError);
+              } else {
+                console.log("✅ Successfully restored bulletin");
+              }
+            } catch (err) {
+              console.warn("Bulletin post table not accessible:", err);
+            }
+          }
+        }
+      }
       
       setError(null);
       await fetchReports();
+      
     } catch (err) {
       console.error("Error updating report status:", err);
       setError("Failed to update report status");
     }
   }, [fetchReports]);
-
-  // Hide/unhide post (unchanged)
-  const handlePostVisibility = useCallback(async (postId, hide, postType) => {
-    try {
-      const tableName = postType === "practice" ? "practice_posts" : "tournament_posts";
-      const idColumn = postType === "practice" ? "practice_id" : "tournament_id";
-      
-      const { error } = await supabase
-        .from(tableName)
-        .update({ is_hidden: hide })
-        .eq(idColumn, postId);
-
-      if (error) throw error;
-      
-      setError(null);
-      await fetchReports();
-    } catch (err) {
-      console.error("Error updating post visibility:", err);
-      setError("Failed to update post visibility");
-    }
-  }, [fetchReports]);
-
-  // Delete post (unchanged)
-  const handleDeletePost = useCallback(async (postId, postType) => {
-    try {
-      const tableName = postType === "practice" ? "practice_posts" : "tournament_posts";
-      const idColumn = postType === "practice" ? "practice_id" : "tournament_id";
-      
-      const { error } = await supabase
-        .from(tableName)
-        .delete()
-        .eq(idColumn, postId);
-
-      if (error) throw error;
-      
-      setError(null);
-      setActionModal({ open: false, reportId: null, postId: null, action: "", reportType: null });
-      await fetchReports();
-    } catch (err) {
-      console.error("Error deleting post:", err);
-      setError("Failed to delete post");
-    }
-  }, [fetchReports]);
-
-  // Close modal (unchanged)
-  const closeActionModal = useCallback(() => {
-    setActionModal({ open: false, reportId: null, postId: null, action: "", reportType: null });
-  }, []);
 
   // Handle image click
   const handleImageClick = useCallback((imageUrl) => {
@@ -570,17 +938,15 @@ export default function PostReport() {
     }
   }, []);
 
-  // Close image modal
   const closeImageModal = useCallback(() => {
     setImageModal({ open: false, imageUrl: null });
   }, []);
 
-  // Effects (unchanged)
+  // Effects
   useEffect(() => {
     fetchReports();
   }, [fetchReports]);
 
-  // Handle outside click for dropdowns (unchanged)
   useEffect(() => {
     function handleClickOutside(event) {
       if (typeDropdownRef.current && !typeDropdownRef.current.contains(event.target)) {
@@ -604,7 +970,6 @@ export default function PostReport() {
     }
   }, [typeDropdownOpen, sortDropdownOpen, timeDropdownOpen, statusDropdownOpen]);
 
-  // Helper function to truncate text
   const truncateText = (text, maxLength = 100) => {
     if (!text) return "No content";
     if (text.length <= maxLength) return text;
@@ -615,7 +980,6 @@ export default function PostReport() {
     <div style={{ minHeight: "500px", padding: "20px", fontFamily: "Arial, sans-serif" }}>
       <h2 style={{ marginBottom: "20px" }}>Post Reports</h2>
       
-      {/* Controls (unchanged) */}
       <div style={{
         display: "flex",
         gap: 16,
@@ -687,7 +1051,6 @@ export default function PostReport() {
         </button>
       </div>
 
-      {/* Error display (unchanged) */}
       {error && (
         <div style={{
           padding: "12px 16px",
@@ -701,405 +1064,422 @@ export default function PostReport() {
         </div>
       )}
 
-      {/* Debug info */}
       {!loading && (
         <div style={{ marginBottom: "10px", color: "#666", fontSize: "14px" }}>
-          Showing {reports.length} report(s)
+          Showing {reports.length} unique post(s) with reports
         </div>
       )}
 
-      {/* Reports Table - ENHANCED with better image handling */}
       {loading ? (
         <p>Loading post reports...</p>
       ) : reports.length === 0 ? (
         <p>No post reports found.</p>
       ) : (
-        // Detailed View with Post Content Column
         <div style={{ overflowX: "auto" }}>
           <table style={{ 
             width: "100%", 
             borderCollapse: "collapse",
             border: "1px solid #ddd",
-            minWidth: "1200px" // Increased for additional column
+            minWidth: "1200px"
           }}>
             <thead>
               <tr style={{ backgroundColor: "#f5f5f5" }}>
-                <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Report ID</th>
+                <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Post ID</th>
                 <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Post Type</th>
                 <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Post Title</th>
-                <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd", minWidth: "200px" }}>Post</th>
+                <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd", minWidth: "200px" }}>Post Content</th>
                 <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Post Image</th>
                 <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Post Author</th>
-                <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Reporter</th>
-                <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Reasons</th>
+                <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>All Reporters</th>
+                <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>All Reasons</th>
                 <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Status</th>
-                <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Reported At</th>
+                <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Report Count</th>
+                <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Last Reported</th>
                 <th style={{ padding: "12px", textAlign: "left", border: "1px solid #ddd" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {reports.map((report) => {
-                
-                return (
-                  <tr key={report.report_id} style={{ borderBottom: "1px solid #ddd" }}>
-                    <td style={{ padding: "12px", border: "1px solid #ddd", fontSize: "12px" }}>
-                      {report.report_id?.substring(0, 8)}...
-                    </td>
-                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                      <span style={{
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                        fontWeight: "bold",
-                        backgroundColor: report.reportType === "tournament" ? "#e9ecef" : "#f8f9fa",
-                        color: "#495057",
-                        textTransform: "capitalize"
-                      }}>
-                        {report.reportType}
-                      </span>
-                    </td>
-                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                      {report.post?.title || "Unknown Post"}
-                      {report.post?.is_hidden && (
-                        <span style={{ color: "#dc3545", marginLeft: "8px", fontSize: "12px" }}>
-                          (Hidden)
-                        </span>
-                      )}
-                      {!report.post && (
-                        <span style={{ color: "#dc3545", fontSize: "12px" }}>
-                          (Post not found)
-                        </span>
-                      )}
-                    </td>
-                    {/* POST CONTENT COLUMN */}
-                    <td style={{ 
-                      padding: "12px", 
-                      border: "1px solid #ddd", 
-                      maxWidth: "200px",
-                      fontSize: "14px",
-                      lineHeight: "1.4"
+              {reports.map((report) => (
+                <tr key={`${report.reportType}_${report.post?.id}`} style={{ borderBottom: "1px solid #ddd" }}>
+                  <td style={{ padding: "12px", border: "1px solid #ddd", fontSize: "12px" }}>
+                    {report.post?.id?.substring(0, 8)}...
+                  </td>
+                  <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                    <span style={{
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                      fontSize: "12px",
+                      fontWeight: "bold",
+                      backgroundColor: "#e9ecef",
+                      color: "#495057",
+                      textTransform: "capitalize"
                     }}>
+                      {report.reportType}
+                    </span>
+                  </td>
+                  <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                    {report.post?.title || "Unknown Post"}
+                  </td>
+                  <td style={{ 
+                    padding: "12px", 
+                    border: "1px solid #ddd", 
+                    maxWidth: "200px",
+                    fontSize: "14px",
+                    lineHeight: "1.4"
+                  }}>
+                    <div style={{
+                      maxHeight: "80px",
+                      overflowY: "auto",
+                      color: "#333"
+                    }}>
+                      {truncateText(report.post?.content)}
+                    </div>
+                    {report.post?.content && report.post.content.length > 100 && (
+                      <button
+                        style={{
+                          marginTop: "4px",
+                          padding: "2px 6px",
+                          fontSize: "10px",
+                          backgroundColor: "#007bff",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "2px",
+                          cursor: "pointer"
+                        }}
+                        onClick={() => {
+                          alert(report.post.content);
+                        }}
+                      >
+                        View Full
+                      </button>
+                    )}
+                  </td>
+                  <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                    {report.reportType === "practice" ? (
                       <div style={{
-                        maxHeight: "80px",
-                        overflowY: "auto",
-                        color: "#333"
+                        width: "80px",
+                        height: "80px",
+                        backgroundColor: "#f8f9fa",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "12px",
+                        color: "#666",
+                        borderRadius: "6px",
+                        border: "2px solid #e9ecef",
+                        flexDirection: "column",
+                        textAlign: "center"
                       }}>
-                        {truncateText(report.post?.content)}
+                        <div>📷</div>
+                        <div>No Image</div>
                       </div>
-                      {report.post?.content && report.post.content.length > 100 && (
-                        <button
-                          style={{
-                            marginTop: "4px",
-                            padding: "2px 6px",
-                            fontSize: "10px",
-                            backgroundColor: "#007bff",
-                            color: "white",
-                            border: "none",
-                            borderRadius: "2px",
-                            cursor: "pointer"
-                          }}
-                          onClick={() => {
-                            alert(report.post.content); // Simple modal - you can replace with a proper modal
-                          }}
-                        >
-                          View Full
-                        </button>
-                      )}
-                    </td>
-                    {/* ENHANCED POST IMAGE COLUMN */}
-                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                      {report.reportType === "practice" ? (
-                        // Always show "No Image" for practice reports
-                        <div style={{
-                          width: "80px",
-                          height: "80px",
-                          backgroundColor: "#f8f9fa",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "12px",
-                          color: "#666",
-                          borderRadius: "6px",
-                          border: "2px solid #e9ecef",
-                          flexDirection: "column",
-                          textAlign: "center"
-                        }}>
-                          <div>📷</div>
-                          <div>No Image</div>
-                        </div>
-                      ) : (
-                        // For tournament reports, try to show the image
-                        (() => {
-                          const imageUrl = getImageUrl(report.post?.image);
-                          return imageUrl && report.post?.image !== "no image" ? (
-                            <div style={{ position: "relative" }}>
-                              <img 
-                                src={imageUrl} 
-                                alt="Tournament poster"
-                                style={{ 
-                                  width: "80px", 
-                                  height: "80px", 
-                                  objectFit: "cover", 
-                                  borderRadius: "6px",
-                                  cursor: "pointer",
-                                  transition: "transform 0.2s ease",
-                                  border: "2px solid #e9ecef"
-                                }}
-                                onClick={() => handleImageClick(report.post?.image)}
-                                onMouseOver={(e) => {
-                                  e.target.style.transform = "scale(1.05)";
-                                }}
-                                onMouseOut={(e) => {
-                                  e.target.style.transform = "scale(1)";
-                                }}
-                                onError={(e) => {
-                                  e.target.style.display = "none";
-                                  e.target.nextSibling.style.display = "flex";
-                                }}
-                              />
-                              {/* Fallback div that shows when image fails to load */}
-                              <div style={{
-                                width: "80px",
-                                height: "80px",
-                                backgroundColor: "#f8f9fa",
-                                display: "none",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: "10px",
-                                color: "red",
+                    ) : (
+                      (() => {
+                        const imageUrl = getImageUrl(report.post?.image);
+                        return imageUrl && report.post?.image !== "no image" ? (
+                          <div style={{ position: "relative" }}>
+                            <img 
+                              src={imageUrl} 
+                              alt={`${report.reportType} image`}
+                              style={{ 
+                                width: "80px", 
+                                height: "80px", 
+                                objectFit: "cover", 
                                 borderRadius: "6px",
-                                border: "2px solid #e9ecef",
-                                flexDirection: "column",
-                                textAlign: "center"
-                              }}>
-                                <div>❌</div>
-                                <div>Failed to load</div>
-                              </div>
-                              {/* Zoom indicator */}
-                              <div style={{
-                                position: "absolute",
-                                top: "4px",
-                                right: "4px",
-                                backgroundColor: "rgba(0, 0, 0, 0.6)",
-                                color: "white",
-                                borderRadius: "50%",
-                                width: "20px",
-                                height: "20px",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                fontSize: "10px",
-                                opacity: 0.8
-                              }}>
-                                🔍
-                              </div>
-                            </div>
-                          ) : (
-                            // Show "No Image" for tournament reports without images
+                                cursor: "pointer",
+                                transition: "transform 0.2s ease",
+                                border: "2px solid #e9ecef"
+                              }}
+                              onClick={() => handleImageClick(report.post?.image)}
+                              onMouseOver={(e) => {
+                                e.target.style.transform = "scale(1.05)";
+                              }}
+                              onMouseOut={(e) => {
+                                e.target.style.transform = "scale(1)";
+                              }}
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                                e.target.nextSibling.style.display = "flex";
+                              }}
+                            />
                             <div style={{
                               width: "80px",
                               height: "80px",
                               backgroundColor: "#f8f9fa",
-                              display: "flex",
+                              display: "none",
                               alignItems: "center",
                               justifyContent: "center",
-                              fontSize: "12px",
-                              color: "#666",
+                              fontSize: "10px",
+                              color: "red",
                               borderRadius: "6px",
                               border: "2px solid #e9ecef",
                               flexDirection: "column",
                               textAlign: "center"
                             }}>
-                              <div>📷</div>
-                              <div>No Image</div>
+                              <div>❌</div>
+                              <div>Failed to load</div>
                             </div>
-                          );
-                        })()
+                            <div style={{
+                              position: "absolute",
+                              top: "4px",
+                              right: "4px",
+                              backgroundColor: "rgba(0, 0, 0, 0.6)",
+                              color: "white",
+                              borderRadius: "50%",
+                              width: "20px",
+                              height: "20px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "10px",
+                              opacity: 0.8
+                            }}>
+                              🔍
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{
+                            width: "80px",
+                            height: "80px",
+                            backgroundColor: "#f8f9fa",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "12px",
+                            color: "#666",
+                            borderRadius: "6px",
+                            border: "2px solid #e9ecef",
+                            flexDirection: "column",
+                            textAlign: "center"
+                          }}>
+                            <div>{report.reportType === "bulletin" ? "📰" : "📷"}</div>
+                            <div>No Image</div>
+                          </div>
+                        );
+                      })()
+                    )}
+                  </td>
+                  <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                    {report.post?.author || "Unknown"}
+                  </td>
+                  <td style={{ padding: "12px", border: "1px solid #ddd", maxWidth: "150px" }}>
+                    <div style={{ 
+                      maxHeight: "100px", 
+                      overflowY: "auto",
+                      fontSize: "12px" 
+                    }}>
+                      {report.allReporters && report.allReporters.length > 0 ? (
+                        report.allReporters.map((reporter, idx) => (
+                          <div key={idx} style={{ marginBottom: "4px", fontSize: "11px" }}>
+                            <div style={{ fontWeight: "bold" }}>
+                              @{reporter.username}
+                            </div>
+                            <div style={{ color: "#666" }}>
+                              {reporter.name}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ color: "#666", fontStyle: "italic" }}>No reporters found</div>
                       )}
-                    </td>
-                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                      {report.post?.author || "Unknown"}
-                    </td>
-                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                      {report.reporter?.name || report.reporter?.username || "Unknown"}
-                      <br />
-                      <small style={{ color: "#666" }}>{report.reporter?.email}</small>
-                    </td>
-                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                      <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "14px" }}>
-                        {report.reason && report.reason.map((reason, idx) => (
-                          <li key={idx}>{reason}</li>
-                        ))}
+                    </div>
+                  </td>
+                  <td style={{ padding: "12px", border: "1px solid #ddd", maxWidth: "150px" }}>
+                    <div style={{ 
+                      maxHeight: "100px", 
+                      overflowY: "auto" 
+                    }}>
+                      <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "12px" }}>
+                        {report.allReasons && report.allReasons.length > 0 ? (
+                          report.allReasons.map((reason, idx) => (
+                            <li key={idx}>{reason}</li>
+                          ))
+                        ) : (
+                          <li style={{ color: "#666", fontStyle: "italic" }}>No reasons provided</li>
+                        )}
                       </ul>
-                    </td>
-                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                      <span style={{
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                        fontWeight: "bold",
-                        backgroundColor: 
-                          report.approval_status === "approved" ? "#d4edda" :
-                          report.approval_status === "rejected" ? "#f8d7da" :
-                          "#fff3cd",
-                        color: 
-                          report.approval_status === "approved" ? "#155724" :
-                          report.approval_status === "rejected" ? "#721c24" :
-                          "#856404"
-                      }}>
-                        {report.approval_status}
-                      </span>
-                    </td>
-                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                      {new Date(report.created_at).toLocaleString()}
-                    </td>
-                    <td style={{ padding: "12px", border: "1px solid #ddd" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                        {report.approval_status === "pending" && (
-                          <>
-                            <button 
-                              style={{ 
-                                padding: "6px 12px", 
-                                backgroundColor: "#28a745", 
-                                color: "white", 
-                                border: "none", 
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px"
-                              }}
-                              onClick={() => handleReportAction(report.report_id, "approved", report.reportType)}
-                            >
-                              Approve
-                            </button>
-                            <button 
-                              style={{ 
-                                padding: "6px 12px", 
-                                backgroundColor: "#dc3545", 
-                                color: "white", 
-                                border: "none", 
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px"
-                              }}
-                              onClick={() => handleReportAction(report.report_id, "rejected", report.reportType)}
-                            >
-                              Reject
-                            </button>
-                          </>
-                        )}
-                        
-                        {report.post && (
-                          <>
-                            <button 
-                              style={{ 
-                                padding: "6px 12px", 
-                                backgroundColor: report.post.is_hidden ? "#17a2b8" : "#ffc107", 
-                                color: "white", 
-                                border: "none", 
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px"
-                              }}
-                              onClick={() => handlePostVisibility(report.post.id, !report.post.is_hidden, report.reportType)}
-                            >
-                              {report.post.is_hidden ? "Unhide Post" : "Hide Post"}
-                            </button>
-                            
-                            <button 
-                              style={{ 
-                                padding: "6px 12px", 
-                                backgroundColor: "#dc3545", 
-                                color: "white", 
-                                border: "none", 
-                                borderRadius: "4px",
-                                cursor: "pointer",
-                                fontSize: "12px"
-                              }}
-                              onClick={() => setActionModal({ 
-                                open: true, 
-                                reportId: report.report_id, 
-                                postId: report.post.id, 
-                                action: "delete",
-                                reportType: report.reportType
-                              })}
-                            >
-                              Delete Post
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                    </div>
+                  </td>
+                  <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                    <span style={{
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                      fontSize: "12px",
+                      fontWeight: "bold",
+                      backgroundColor: 
+                        report.approval_status === "penalized" ? "#d4edda" :
+                        report.approval_status === "rejected" ? "#f8d7da" :
+                        report.approval_status === "restored" ? "#fff3cd" :
+                        "#fff3cd",
+                      color: 
+                        report.approval_status === "penalized" ? "#155724" :
+                        report.approval_status === "rejected" ? "#721c24" :
+                        report.approval_status === "restored" ? "#856404" :
+                        "#856404"
+                    }}>
+                      {report.approval_status}
+                    </span>
+                  </td>
+                  <td style={{ padding: "12px", border: "1px solid #ddd", textAlign: "center" }}>
+                    {report.reportCount || 1}
+                  </td>
+                  <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                    {new Date(report.created_at).toLocaleString()}
+                  </td>
+                  <td style={{ padding: "12px", border: "1px solid #ddd" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {report.approval_status === "pending" && (
+                        <>
+                          <button 
+                            type="button"
+                            style={{ 
+                              padding: "6px 12px", 
+                              backgroundColor: "#28a745", 
+                              color: "white", 
+                              border: "none", 
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "12px"
+                            }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleReportAction(report.report_id, "penalized", report.reportType);
+                            }}
+                          >
+                            Penalize & Remove Post
+                          </button>
+                          <button 
+                            type="button"
+                            style={{ 
+                              padding: "6px 12px", 
+                              backgroundColor: "#dc3545", 
+                              color: "white", 
+                              border: "none", 
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "12px"
+                            }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleReportAction(report.report_id, "rejected", report.reportType);
+                            }}
+                          >
+                            Reject Report
+                          </button>
+                        </>
+                      )}
+                      {report.approval_status === "penalized" && (
+                        <>
+                          <div style={{ 
+                            fontSize: "11px", 
+                            color: "#28a745", 
+                            fontWeight: "bold",
+                            marginBottom: "4px",
+                            textAlign: "center"
+                          }}>
+                            Post Removed
+                          </div>
+                          <button 
+                            type="button"
+                            style={{ 
+                              padding: "6px 12px", 
+                              backgroundColor: "#ffc107", 
+                              color: "#000", 
+                              border: "none", 
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "12px"
+                            }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleReportAction(report.report_id, "restored", report.reportType);
+                            }}
+                          >
+                            Restore Post
+                          </button>
+                        </>
+                      )}
+                      {report.approval_status === "rejected" && (
+                        <>
+                          <div style={{ 
+                            fontSize: "11px", 
+                            color: "#dc3545", 
+                            fontWeight: "bold",
+                            marginBottom: "4px",
+                            textAlign: "center"
+                          }}>
+                            Report Rejected
+                          </div>
+                          <button 
+                            type="button"
+                            style={{ 
+                              padding: "6px 12px", 
+                              backgroundColor: "#ffc107", 
+                              color: "#000", 
+                              border: "none", 
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "12px"
+                            }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleReportAction(report.report_id, "revert", report.reportType);
+                            }}
+                          >
+                            Revert to Pending
+                          </button>
+                        </>
+                      )}
+                      {report.approval_status === "restored" && (
+                        <>
+                          <div style={{ 
+                            fontSize: "11px", 
+                            color: "#ffc107", 
+                            fontWeight: "bold",
+                            marginBottom: "4px",
+                            textAlign: "center"
+                          }}>
+                            Post Restored
+                          </div>
+                          <button 
+                            type="button"
+                            style={{ 
+                              padding: "6px 12px", 
+                              backgroundColor: "#28a745", 
+                              color: "white", 
+                              border: "none", 
+                              borderRadius: "4px",
+                              cursor: "pointer",
+                              fontSize: "12px"
+                            }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleReportAction(report.report_id, "penalized", report.reportType);
+                            }}
+                          >
+                            Re-penalize
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* Image Modal */}
       {imageModal.open && (
         <ImageModal 
           imageUrl={imageModal.imageUrl} 
           onClose={closeImageModal} 
         />
-      )}
-
-      {/* Delete Confirmation Modal (unchanged) */}
-      {actionModal.open && actionModal.action === "delete" && (
-        <div style={{
-          position: "fixed", 
-          top: 0, 
-          left: 0, 
-          width: "100vw", 
-          height: "100vh",
-          background: "rgba(0,0,0,0.3)", 
-          display: "flex", 
-          alignItems: "center", 
-          justifyContent: "center",
-          zIndex: 1000
-        }}>
-          <div style={{ 
-            background: "#fff", 
-            padding: "24px", 
-            borderRadius: "8px", 
-            minWidth: "320px",
-            boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
-          }}>
-            <h3 style={{ marginTop: 0 }}>Confirm Delete</h3>
-            <p>Are you sure you want to delete this post? This action cannot be undone.</p>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                style={{ 
-                  padding: "8px 16px", 
-                  backgroundColor: "#dc3545", 
-                  color: "white", 
-                  border: "none", 
-                  borderRadius: "4px",
-                  cursor: "pointer"
-                }}
-                onClick={() => {
-                  handleDeletePost(actionModal.postId, actionModal.reportType);
-                }}
-              >
-                Delete
-              </button>
-              <button 
-                style={{ 
-                  padding: "8px 16px", 
-                  backgroundColor: "#6c757d", 
-                  color: "white", 
-                  border: "none", 
-                  borderRadius: "4px",
-                  cursor: "pointer"
-                }}
-                onClick={closeActionModal}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

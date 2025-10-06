@@ -1,65 +1,73 @@
 import React, { useEffect, useState } from "react";
 import supabase from "../helper/supabaseClient";
 import ImageModal from "../components/ImageModal";
+import StatusBadge from "../components/shared/StatusBadge";
+import ErrorDisplay from "../components/shared/ErrorDisplay";
 
-const statusColors = {
-  pending: { background: "#fffbe6", color: "#b59f3b", border: "1px solid #ffe58f" },
-  accepted: { background: "#e6ffed", color: "#389e0d", border: "1px solid #b7eb8f" },
-  rejected: { background: "#fff1f0", color: "#cf1322", border: "1px solid #ffa39e" }
-};
-
-function StatusBadge({ status }) {
-  const style = {
-    display: "inline-block",
-    padding: "2px 12px",
-    borderRadius: 12,
-    fontSize: 13,
-    fontWeight: 500,
-    textTransform: "capitalize",
-    ...statusColors[status] || statusColors["pending"]
-  };
-  return <span style={style}>{status}</span>;
-}
-
-export default function OrganizerApplicationTable({ buttonStyle }) {
-  const [applications, setApplications] = useState([]);
+export default function OrganizerApplicationTable({ 
+  applications,
+  onApprove,
+  onReject,
+  onRestore,
+  buttonStyle,
+  bucketName,
+  currentStatus
+}) {
   const [modalImage, setModalImage] = useState({ isOpen: false, src: "", alt: "" });
+  const [organizerExistsMap, setOrganizerExistsMap] = useState({});
+  const [warningMessage, setWarningMessage] = useState("");
 
+  // Check if organizers exist in organizers table for accepted applications
   useEffect(() => {
-    fetchApplications();
-  }, []);
-
-  const fetchApplications = async () => {
-    const { data, error } = await supabase.from("organizer_applications").select("*");
-    if (error) {
-      console.error("Organizer Applications fetch error:", error.message);
-    } else {
-      const dataWithStatus = data.map(item => ({
-        ...item,
-        status: item.status || 'pending'
-      }));
-      setApplications(dataWithStatus);
+    async function checkOrganizersExistence() {
+      const existsMap = {};
+      
+      // Only check for accepted applications
+      const acceptedApplications = applications.filter(app => app.application_status === "accepted");
+      
+      for (const app of acceptedApplications) {
+        try {
+          const { data, error } = await supabase
+            .from("organizers")
+            .select("organizer_id")
+            .eq("email", app.email)
+            .single();
+          
+          existsMap[app.organizer_application_id] = !error && data;
+        } catch (err) {
+          console.error(`Error checking organizer existence for ${app.email}:`, err);
+          existsMap[app.organizer_application_id] = false;
+        }
+      }
+      
+      setOrganizerExistsMap(existsMap);
     }
+    
+    if (applications.length > 0) {
+      checkOrganizersExistence();
+    }
+  }, [applications]);
+
+  const handleReject = (applicationId) => {
+    // Check if organizer exists in organizers table
+    if (organizerExistsMap[applicationId]) {
+      setWarningMessage("Cannot reject this application - the organizer account has already been created and may be in use.");
+      setTimeout(() => setWarningMessage(""), 5000);
+      return;
+    }
+    
+    onReject(applicationId);
   };
 
-  const updateApplicationStatus = async (applicationId, newStatus) => {
-    try {
-      const { data, error } = await supabase
-        .from('organizer_applications')
-        .update({ status: newStatus })
-        .eq('application_id', applicationId);
-      
-      if (error) throw error;
-      
-      setApplications(applications.map(item => 
-        item.application_id === applicationId 
-          ? { ...item, status: newStatus } 
-          : item
-      ));
-      
-    } catch (error) {
-      console.error('Error updating status:', error.message);
+  const handleRestore = (applicationId) => {
+    // Check if organizer exists in organizers table
+    if (organizerExistsMap[applicationId]) {
+      setWarningMessage("Cannot restore this application - the organizer account has already been created and may be in use.");
+      setTimeout(() => setWarningMessage(""), 5000);
+      return;
     }
+    
+    onRestore(applicationId);
   };
 
   const getImageUrl = (path) => {
@@ -93,6 +101,9 @@ export default function OrganizerApplicationTable({ buttonStyle }) {
 
   return (
     <>
+      {/* Warning Message */}
+      <ErrorDisplay error={warningMessage} />
+
       <div style={{ overflowX: "auto", position: "relative" }}>
         <table style={{
           width: "100%",
@@ -111,6 +122,7 @@ export default function OrganizerApplicationTable({ buttonStyle }) {
               <th style={{ border: "1px solid #eee", padding: "10px 8px", background: "#fafafa", fontWeight: 600 }}>Created Date</th>
               <th style={{ border: "1px solid #eee", padding: "10px 8px", background: "#fafafa", fontWeight: 600 }}>Filer ID</th>
               <th style={{ border: "1px solid #eee", padding: "10px 8px", background: "#fafafa", fontWeight: 600 }}>Status</th>
+              <th style={{ border: "1px solid #eee", padding: "10px 8px", background: "#fafafa", fontWeight: 600 }}>Organizer Created</th>
               <th style={{ 
                 border: "1px solid #eee", 
                 padding: "10px 8px", 
@@ -126,15 +138,15 @@ export default function OrganizerApplicationTable({ buttonStyle }) {
           <tbody>
             {applications.length === 0 ? (
               <tr>
-                <td colSpan="10" style={{ textAlign: "center", padding: "24px", color: "#888" }}>
+                <td colSpan="11" style={{ textAlign: "center", padding: "24px", color: "#888" }}>
                   No applications found
                 </td>
               </tr>
             ) : (
               applications.map((item) => (
-                <tr key={item.application_id}>
+                <tr key={item.organizer_application_id}>
                   <td style={{ border: "1px solid #eee", padding: "8px 6px", fontSize: 13 }}>
-                    {item.application_id}
+                    {item.organizer_application_id}
                   </td>
                   <td style={{ border: "1px solid #eee", padding: "8px 6px", fontSize: 13 }}>
                     {item.name}
@@ -173,7 +185,36 @@ export default function OrganizerApplicationTable({ buttonStyle }) {
                     {item.filer_id}
                   </td>
                   <td style={{ border: "1px solid #eee", padding: "8px 6px", fontSize: 13 }}>
-                    <StatusBadge status={item.status} />
+                    <StatusBadge status={item.application_status} />
+                  </td>
+                  <td style={{ border: "1px solid #eee", padding: "8px 6px", fontSize: 13, textAlign: "center" }}>
+                    {organizerExistsMap[item.organizer_application_id] ? (
+                      <span style={{
+                        display: "inline-block",
+                        padding: "2px 8px",
+                        borderRadius: 12,
+                        fontSize: 12,
+                        fontWeight: 500,
+                        background: "#e6ffed",
+                        color: "#389e0d",
+                        border: "1px solid #b7eb8f"
+                      }}>
+                        ✓ Yes
+                      </span>
+                    ) : (
+                      <span style={{
+                        display: "inline-block",
+                        padding: "2px 8px",
+                        borderRadius: 12,
+                        fontSize: 12,
+                        fontWeight: 500,
+                        background: "#f5f5f5",
+                        color: "#666",
+                        border: "1px solid #d9d9d9"
+                      }}>
+                        No
+                      </span>
+                    )}
                   </td>
                   <td style={{ 
                     border: "1px solid #eee", 
@@ -186,7 +227,23 @@ export default function OrganizerApplicationTable({ buttonStyle }) {
                     minWidth: 200
                   }}>
                     <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                      {item.status === "pending" && (
+                      {(item.application_status === "accepted" || item.application_status === "rejected") ? (
+                        <button
+                          style={{
+                            ...buttonStyle,
+                            background: organizerExistsMap[item.organizer_application_id] ? "#d9d9d9" : "#faad14",
+                            color: organizerExistsMap[item.organizer_application_id] ? "#999" : "#fff",
+                            border: "none",
+                            borderRadius: 6,
+                            cursor: organizerExistsMap[item.organizer_application_id] ? "not-allowed" : "pointer"
+                          }}
+                          onClick={() => handleRestore(item.organizer_application_id)}
+                          disabled={organizerExistsMap[item.organizer_application_id]}
+                          title={organizerExistsMap[item.organizer_application_id] ? "Cannot restore - organizer already exists" : "Restore application"}
+                        >
+                          <span style={{ width: "100%", textAlign: "center" }}>Restore</span>
+                        </button>
+                      ) : (
                         <>
                           <button
                             style={{
@@ -197,7 +254,7 @@ export default function OrganizerApplicationTable({ buttonStyle }) {
                               borderRadius: 6,
                               cursor: "pointer"
                             }}
-                            onClick={() => updateApplicationStatus(item.application_id, 'accepted')}
+                            onClick={() => onApprove(item.organizer_application_id)}
                           >
                             <span style={{ width: "100%", textAlign: "center" }}>Accept</span>
                           </button>
@@ -210,7 +267,7 @@ export default function OrganizerApplicationTable({ buttonStyle }) {
                               borderRadius: 6,
                               cursor: "pointer"
                             }}
-                            onClick={() => updateApplicationStatus(item.application_id, 'rejected')}
+                            onClick={() => handleReject(item.organizer_application_id)}
                           >
                             <span style={{ width: "100%", textAlign: "center" }}>Decline</span>
                           </button>
