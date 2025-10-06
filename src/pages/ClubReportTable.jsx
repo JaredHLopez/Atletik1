@@ -31,7 +31,7 @@ const CLUB_TABLE_COLUMNS = [
     key: "profile_image",
     title: "Profile Image",
     centerAlign: true,
-    render: (report, { renderImageCell }) => {
+    render: (report, { renderImageCell }) => {  
       const displayName = report.club_name || "Club";
       return renderImageCell(report, 'profile', displayName);
     }

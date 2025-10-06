@@ -10,7 +10,8 @@ export default function Modal({
   confirmText = "Confirm", 
   confirmDisabled = false,
   confirmVariant = "primary",
-  showDefaultButtons = true
+  showDefaultButtons = true,
+  width = "420px"
 }) {
   if (!isOpen) return null;
 
@@ -29,17 +30,27 @@ export default function Modal({
     }}>
       <div style={{
         background: "#fff",
-        padding: "24px",
+        padding: "20px",
         borderRadius: "8px",
-        width: "400px",
-        maxWidth: "90vw"
+        width: width,
+        maxWidth: "95vw",
+        maxHeight: "85vh",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        boxSizing: "border-box"
       }}>
-        {title && <h3 style={{ marginBottom: "16px" }}>{title}</h3>}
-        <div style={{ marginBottom: showDefaultButtons ? "16px" : "0" }}>
+        {title && <h3 style={{ marginBottom: "16px", flexShrink: 0 }}>{title}</h3>}
+        <div style={{ 
+          marginBottom: showDefaultButtons ? "16px" : "0",
+          overflow: "auto",
+          flex: 1,
+          minHeight: 0
+        }}>
           {children}
         </div>
         {showDefaultButtons && (
-          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", flexShrink: 0 }}>
             <ActionButton variant="secondary" onClick={onClose}>
               Cancel
             </ActionButton>
