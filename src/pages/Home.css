@@ -1,0 +1,244 @@
+/* Home.css */
+
+.home-page {
+  min-height: 100vh;
+  background-color: #3b82f6; /* solid blue background */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-family: Arial, sans-serif;
+  color: white;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  padding: 0 20px;
+}
+
+/* Burger button */
+.menu-button {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  font-size: 28px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  z-index: 20;
+}
+
+.menu-button:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Mobile menu */
+.mobile-menu {
+  position: fixed;
+  top: 60px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding: 12px;
+  z-index: 15;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-link {
+  display: block;
+  color: #3b82f6;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 8px;
+  text-decoration: none;
+  background: white;
+  transition: background 0.3s ease;
+}
+
+.login-link:hover {
+  background: #e2e8f0;
+}
+
+/* Main content */
+.main-content {
+  max-width: 600px;
+}
+
+.heading {
+  font-size: 48px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  text-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+}
+
+.sub-heading {
+  font-size: 28px;
+  margin-bottom: 20px;
+}
+
+.text {
+  font-size: 18px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 auto;
+  max-width: 400px;
+}
+
+.download-button {
+  display: inline-block;
+  margin-top: 25px;
+  background: white;
+  color: #3b82f6;
+  font-weight: bold;
+  text-decoration: none;
+  padding: 12px 25px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.download-button:hover {
+  background: #e2e8f0;
+  transform: translateY(-2px);
+}
+
+.logo {
+  width: 120px;            /* adjust size */
+  height: 120px;
+  border-radius: 50%;      /* makes it circular */
+  object-fit: cover;       /* keeps it nicely cropped */
+  border: 3px solid white; /* white ring around the circle */
+  margin-bottom: 15px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* General layout */
+.home-page {
+  font-family: "Poppins", sans-serif;
+  color: white;
+  text-align: center;
+}
+
+/* Burger menu */
+.menu-button {
+  position: fixed;
+  top: 15px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+  z-index: 1000;
+}
+
+.mobile-menu {
+  position: fixed;
+  top: 60px;
+  right: 20px;
+  background-color: rgba(255, 255, 255, 0.9);
+  color: #3b82f6;
+  border-radius: 8px;
+  padding: 10px 15px;
+}
+
+.login-link {
+  text-decoration: none;
+  color: #3b82f6;
+  font-weight: bold;
+}
+
+/* Hero Section */
+.hero-section {
+  background-color: #3b82f6;
+  padding: 80px 20px;
+}
+
+.logo {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 3px solid white;
+  object-fit: cover;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.heading {
+  font-size: 2.8rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.sub-heading {
+  font-size: 1.5rem;
+  margin-bottom: 15px;
+}
+
+.text {
+  font-size: 1rem;
+  max-width: 600px;
+  margin: 0 auto 20px;
+}
+
+.download-button {
+  display: inline-block;
+  background: white;
+  color: #3b82f6;
+  padding: 12px 25px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: bold;
+  transition: 0.3s;
+}
+
+.download-button:hover {
+  background: #e2e8f0;
+  transform: translateY(-2px);
+}
+
+/* Introduction Section */
+.intro-section {
+  background-color: #2563eb;
+  padding: 70px 20px;
+}
+
+.section-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.section-text {
+  font-size: 1rem;
+  max-width: 700px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* About Section */
+.about-section {
+  background-color: #1e3a8a;
+  padding: 70px 20px;
+}
+
+.student-list {
+  margin-top: 25px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
