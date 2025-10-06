@@ -27,9 +27,23 @@ export default function Sports() {
   const [formData, setFormData] = useState({
     sport_name: "",
     competition_type: "matchup",
-    scoring_type: "none",
+    scoring_type: "set", // Default to "set" since matchup cannot have "none"
     tournament_details: []
   });
+
+  // Handle competition type change and enforce scoring type rules
+  const handleCompetitionTypeChange = (competitionType) => {
+    setFormData(prev => {
+      const newFormData = { ...prev, competition_type: competitionType };
+      
+      // If changing to matchup and current scoring is none, change to set
+      if (competitionType === "matchup" && prev.scoring_type === "none") {
+        newFormData.scoring_type = "set";
+      }
+      
+      return newFormData;
+    });
+  };
 
   // Tournament details builder state
   const [tournamentFields, setTournamentFields] = useState([]);
@@ -48,6 +62,19 @@ export default function Sports() {
     fontSize: "14px",
     fontWeight: "500",
     transition: "background-color 0.2s"
+  };
+
+  // Helper function to convert string to camelCase
+  const toCamelCase = (str) => {
+    return str
+      .toLowerCase()
+      .replace(/[^a-zA-Z0-9]+(.)/g, (match, chr) => chr.toUpperCase())
+      .replace(/^[A-Z]/, (match) => match.toLowerCase());
+  };
+
+  // Helper function to convert dropdown options to lowercase
+  const normalizeDropdownOptions = (options) => {
+    return options.map(option => option.toLowerCase());
   };
 
   useEffect(() => {
@@ -115,6 +142,9 @@ export default function Sports() {
     setError("");
 
     try {
+      // Convert sport name to camelCase
+      const camelCaseSportName = toCamelCase(formData.sport_name);
+      
       // Build tournament details in the correct format
       const tournamentDetails = tournamentFields.map(field => {
         const detail = {
@@ -122,9 +152,9 @@ export default function Sports() {
           inputType: field.inputType
         };
 
-        // Only add data for dropdown type
+        // Only add data for dropdown type and normalize options to lowercase
         if (field.inputType === "dropdown" && field.data && field.data.length > 0) {
-          detail.data = field.data;
+          detail.data = normalizeDropdownOptions(field.data);
         }
 
         return detail;
@@ -133,9 +163,9 @@ export default function Sports() {
       const { data, error: insertError } = await supabase
         .from("sports")
         .insert([{
-          sport_name: formData.sport_name,
-          competition_type: formData.competition_type,
-          scoring_type: formData.scoring_type === "none" ? null : formData.scoring_type,
+          sport_name: camelCaseSportName,
+          competition_type: toCamelCase(formData.competition_type),
+          scoring_type: formData.scoring_type === "none" ? null : toCamelCase(formData.scoring_type),
           tournament_details: tournamentDetails
         }])
         .select();
@@ -157,11 +187,19 @@ export default function Sports() {
 
   const handleEditSport = (sport) => {
     setSelectedSport(sport);
+    
+    // Determine proper scoring type based on business rules
+    let scoringType = sport.scoring_type || "none";
+    // If competition type is matchup and scoring type is none, change to set
+    if (sport.competition_type === "matchup" && scoringType === "none") {
+      scoringType = "set";
+    }
+    
     // Populate form with selected sport data
     setFormData({
       sport_name: sport.sport_name,
       competition_type: sport.competition_type,
-      scoring_type: sport.scoring_type || "none",
+      scoring_type: scoringType,
       tournament_details: sport.tournament_details || []
     });
     // Populate tournament fields
@@ -177,13 +215,13 @@ export default function Sports() {
       // Build tournament details in the correct format
       const tournamentDetails = tournamentFields.map(field => {
         const detail = {
-          label: field.label,
-          inputType: field.inputType
+          label: toCamelCase(field.label),
+          inputType: field.inputType // Keep input type as-is
         };
 
-        // Only add data for dropdown type
+        // Only add data for dropdown type and normalize options to lowercase
         if (field.inputType === "dropdown" && field.data && field.data.length > 0) {
-          detail.data = field.data;
+          detail.data = normalizeDropdownOptions(field.data);
         }
 
         return detail;
@@ -192,8 +230,8 @@ export default function Sports() {
       const { error: updateError } = await supabase
         .from("sports")
         .update({
-          competition_type: formData.competition_type,
-          scoring_type: formData.scoring_type === "none" ? null : formData.scoring_type,
+          competition_type: toCamelCase(formData.competition_type),
+          scoring_type: formData.scoring_type === "none" ? null : toCamelCase(formData.scoring_type),
           tournament_details: tournamentDetails
         })
         .eq("sport_name", selectedSport.sport_name);
@@ -208,8 +246,8 @@ export default function Sports() {
         if (sport.sport_name === selectedSport.sport_name) {
           return {
             ...sport,
-            competition_type: formData.competition_type,
-            scoring_type: formData.scoring_type === "none" ? null : formData.scoring_type,
+            competition_type: toCamelCase(formData.competition_type),
+            scoring_type: formData.scoring_type === "none" ? null : toCamelCase(formData.scoring_type),
             tournament_details: tournamentDetails
           };
         }
@@ -309,7 +347,7 @@ export default function Sports() {
     setFormData({
       sport_name: "",
       competition_type: "matchup",
-      scoring_type: "none",
+      scoring_type: "set", // Default to "set" since matchup cannot have "none"
       tournament_details: []
     });
     setTournamentFields([]);
@@ -323,10 +361,13 @@ export default function Sports() {
 
   // Tournament details builder functions
   const addOption = () => {
-    if (currentOption.trim() && !newField.data.includes(currentOption.trim())) {
+    const trimmedOption = currentOption.trim();
+    const lowercaseOption = trimmedOption.toLowerCase();
+    
+    if (trimmedOption && !newField.data.includes(lowercaseOption)) {
       setNewField(prev => ({
         ...prev,
-        data: [...prev.data, currentOption.trim()]
+        data: [...prev.data, lowercaseOption]
       }));
       setCurrentOption("");
     }
@@ -342,13 +383,13 @@ export default function Sports() {
   const addTournamentField = () => {
     if (newField.label.trim()) {
       const fieldToAdd = {
-        label: newField.label.trim(),
-        inputType: newField.inputType
+        label: toCamelCase(newField.label.trim()),
+        inputType: newField.inputType // Keep input type as-is
       };
 
       // Only add data array for dropdown type
       if (newField.inputType === "dropdown" && newField.data.length > 0) {
-        fieldToAdd.data = newField.data;
+        fieldToAdd.data = newField.data; // Data is already normalized to lowercase
       }
 
       setTournamentFields(prev => [...prev, fieldToAdd]);
@@ -680,7 +721,7 @@ export default function Sports() {
               </label>
               <select
                 value={formData.competition_type}
-                onChange={(e) => setFormData(prev => ({ ...prev, competition_type: e.target.value }))}
+                onChange={(e) => handleCompetitionTypeChange(e.target.value)}
                 style={{
                   width: "100%",
                   padding: "7px 9px",
@@ -711,10 +752,15 @@ export default function Sports() {
                   boxSizing: "border-box"
                 }}
               >
-                <option value="none">None</option>
+                {formData.competition_type === "race" && <option value="none">None</option>}
                 <option value="set">Set</option>
                 <option value="total">Total</option>
               </select>
+              {formData.competition_type === "matchup" && (
+                <small style={{ color: "#6c757d", fontSize: "11px", marginTop: "2px", display: "block" }}>
+                  * Matchup competitions require a scoring type (Set or Total)
+                </small>
+              )}
             </div>
           </div>
 
@@ -1028,7 +1074,7 @@ export default function Sports() {
               </label>
               <select
                 value={formData.competition_type}
-                onChange={(e) => setFormData(prev => ({ ...prev, competition_type: e.target.value }))}
+                onChange={(e) => handleCompetitionTypeChange(e.target.value)}
                 style={{
                   width: "100%",
                   padding: "8px 10px",
@@ -1059,10 +1105,15 @@ export default function Sports() {
                   boxSizing: "border-box"
                 }}
               >
-                <option value="none">None</option>
+                {formData.competition_type === "race" && <option value="none">None</option>}
                 <option value="set">Set</option>
                 <option value="total">Total</option>
               </select>
+              {formData.competition_type === "matchup" && (
+                <small style={{ color: "#6c757d", fontSize: "11px", marginTop: "2px", display: "block" }}>
+                  * Matchup competitions require a scoring type (Set or Total)
+                </small>
+              )}
             </div>
           </div>
 
