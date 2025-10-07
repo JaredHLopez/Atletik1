@@ -130,7 +130,7 @@ p {
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.9);
   margin: 0 auto;
-  max-width: 400px;
+  /*max-width: 400px;*/
 }
 
 /*.download-button {*/
@@ -221,14 +221,13 @@ p {
 
 .text {
   font-size: 1rem;
-  max-width: 600px;
-  margin: 0 auto 20px;
+  /*max-width: 600px;*/
   font-family: 'General Sans', sans-serif;
 }
 
 .hero-text {
   font-size: 1.15rem;
-  margin-top: 1.25rem;
+  margin-block: 1.25rem;
 }
 
 .download-button {
