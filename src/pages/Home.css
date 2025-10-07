@@ -58,8 +58,7 @@ p {
   border: none;
   color: white;
   font-size: 28px;
-  padding: 10px;
-  /*padding-right: 0;*/
+  padding: 10px 0 10px 10px;
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.3s ease;
