@@ -57,8 +57,8 @@ function Home() {
           SECTION 1: HERO
       ============================== */}
       <section className="hero-section">
-        <div id="color-bomb" />
-        <div id={'frosted-glass'} />
+        {/*<div id="color-bomb" />*/}
+        {/*<div id={'frosted-glass'} />*/}
         <div id="hero-content-container">
           <img src="/home-feed.png" alt="Atletik Logo" className="appImage" />
           {/*<h1 className="heading">Atletik</h1>*/}
