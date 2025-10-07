@@ -97,7 +97,8 @@ function Home() {
           <br /><br />
           Whether you’re an athlete looking for your next competition, a coach seeking new talents, or an organizer promoting your event, <span className="logo-callout">Atletik</span> brings everyone together to strengthen the passion for sports within Taytay.
         </p>
-      </section>
+        <iframe id="video" src="https://www.youtube.com/embed/N4Tls5MLINY" title="Atletik Video Presentation" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        </section>
 
       {/* ==============================
           SECTION 3: ABOUT US

@@ -339,3 +339,9 @@ p:has(+ #degree-tag) {
   left: -20px;
   backdrop-filter: blur(75px);
 }
+
+#video {
+  width: 100%;
+  aspect-ratio: 16/9;
+  margin-top: 2rem;
+}
