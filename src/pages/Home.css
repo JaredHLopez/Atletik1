@@ -51,11 +51,15 @@ p {
   /*position: fixed;*/
   /*top: 16px;*/
   /*right: 16px;*/
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(255, 255, 255, 0.2);
   border: none;
   color: white;
   font-size: 28px;
-  padding: 8px 12px;
+  padding: 10px;
+  /*padding-right: 0;*/
   border-radius: 8px;
   cursor: pointer;
   transition: background 0.3s ease;
