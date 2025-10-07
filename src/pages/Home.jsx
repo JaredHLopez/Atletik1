@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import "./Home.css";
 
@@ -7,6 +7,7 @@ function Home() {
 
   return (
     <div className="home-page">
+      <div id={'frosted-glass'} />
       {/* Burger Button */}
       <header>
         <nav>
@@ -20,7 +21,7 @@ function Home() {
             >
               {menuOpen ?
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                        className="icon icon-tabler icons-tabler-outline icon-tabler-x">
                     <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
                     <path d="M18 6l-12 12"/>
@@ -28,7 +29,7 @@ function Home() {
                   </svg>
                   :
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                        className="icon icon-tabler icons-tabler-outline icon-tabler-menu-2">
                     <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
                     <path d="M4 6l16 0"/>
@@ -57,8 +58,7 @@ function Home() {
           SECTION 1: HERO
       ============================== */}
       <section className="hero-section">
-        {/*<div id="color-bomb" />*/}
-        {/*<div id={'frosted-glass'} />*/}
+        <div id="color-bomb" />
         <div id="hero-content-container">
           <img src="/home-feed.png" alt="Atletik Logo" className="appImage" />
           {/*<h1 className="heading">Atletik</h1>*/}
@@ -73,7 +73,7 @@ function Home() {
               download
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                 stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                  className="icon icon-tabler icons-tabler-outline icon-tabler-download">
               <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
               <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-2"/>
@@ -97,7 +97,7 @@ function Home() {
           <br /><br />
           Whether you’re an athlete looking for your next competition, a coach seeking new talents, or an organizer promoting your event, <span className="logo-callout">Atletik</span> brings everyone together to strengthen the passion for sports within Taytay.
         </p>
-        <iframe id="video" src="https://www.youtube.com/embed/N4Tls5MLINY" title="Atletik Video Presentation" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+        <iframe id="video" src="https://www.youtube.com/embed/N4Tls5MLINY" title="Atletik Video Presentation" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowfullscreen />
         </section>
 
       {/* ==============================
