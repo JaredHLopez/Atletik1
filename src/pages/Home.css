@@ -256,7 +256,7 @@ p {
 /* Introduction Section */
 .intro-section {
   background-color: #2563eb;
-  padding: 70px 10px;
+  padding: 70px 5px;
 }
 
 .section-title {
@@ -279,7 +279,7 @@ p {
 /* About Section */
 .about-section {
   background-color: #1e3a8a;
-  padding: 0px 10px 50px 10px;
+  padding: 0px 5px 50px 5px;
 }
 
 .student-list {
