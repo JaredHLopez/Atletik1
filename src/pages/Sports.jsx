@@ -672,12 +672,12 @@ export default function Sports() {
         </div>
       )}
 
-      {/* Create Sport Modal - Compact Layout */}
+      {/* Create Sport Modal - Horizontal Layout */}
       <Modal
         isOpen={showCreateModal}
         title="Add New Sport"
         showDefaultButtons={false}
-        width="450px"
+        width="900px"
         onClose={() => {
           setShowCreateModal(false);
           resetForm();
@@ -685,16 +685,42 @@ export default function Sports() {
       >
         <div style={{ 
           padding: "0",
-          boxSizing: "border-box"
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          height: "70vh",
+          maxHeight: "600px"
         }}>
-          {/* Basic Info Section - Compact */}
+          {/* Main Content Area - Horizontal Layout */}
           <div style={{
-            marginBottom: "14px",
-            padding: "12px",
-            backgroundColor: "#f8f9fa",
-            borderRadius: "6px",
-            border: "1px solid #e9ecef"
+            display: "flex",
+            gap: "20px",
+            flex: 1,
+            overflow: "hidden"
           }}>
+            {/* Left Side - Basic Info Section */}
+            <div style={{
+              flex: "0 0 380px",
+              overflowY: "auto",
+              paddingRight: "10px"
+            }}>
+              <div style={{
+                marginBottom: "14px",
+                padding: "12px",
+                backgroundColor: "#f8f9fa",
+                borderRadius: "6px",
+                border: "1px solid #e9ecef"
+              }}>
+                <h5 style={{
+                  margin: "0 0 12px 0",
+                  color: "#495057",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  borderBottom: "1px solid #e9ecef",
+                  paddingBottom: "8px"
+                }}>
+                  Basic Information
+                </h5>
             <div style={{ marginBottom: "10px" }}>
               <label style={{ display: "block", marginBottom: "4px", fontWeight: "600", color: "#495057", fontSize: "13px" }}>
                 Sport Name *
@@ -762,10 +788,18 @@ export default function Sports() {
                 </small>
               )}
             </div>
-          </div>
+              </div>
+            </div>
 
-          {/* Tournament Details Builder */}
-          <div style={{ marginBottom: "18px" }}>
+            {/* Right Side - Tournament Details */}
+            <div style={{
+              flex: 1,
+              overflowY: "auto",
+              paddingLeft: "10px",
+              borderLeft: "1px solid #e9ecef"
+            }}>
+              {/* Tournament Details Builder */}
+              <div style={{ marginBottom: "18px" }}>
             <h4 style={{ 
               marginBottom: "12px", 
               color: "#495057", 
@@ -983,51 +1017,58 @@ export default function Sports() {
               </div>
             )}
           </div>
-
-          {/* Footer Buttons */}
-          <div style={{ 
-            display: "flex", 
-            gap: "10px", 
-            justifyContent: "flex-end",
-            paddingTop: "16px",
-            borderTop: "1px solid #e9ecef"
-          }}>
-            <button
-              onClick={() => {
-                setShowCreateModal(false);
-                resetForm();
-              }}
-              style={{
-                ...buttonStyle,
-                backgroundColor: "#6c757d",
-                color: "white",
-                padding: "10px 20px"
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleCreateSport}
-              disabled={creating || !formData.sport_name.trim()}
-              style={{
-                ...buttonStyle,
-                backgroundColor: creating || !formData.sport_name.trim() ? "#ccc" : "#007bff",
-                color: "white",
-                padding: "10px 20px"
-              }}
-            >
-              {creating ? "Creating..." : "Create Sport"}
-            </button>
-          </div>
         </div>
+        </div>
+
+        {/* Sticky Footer Buttons */}
+        <div style={{ 
+          position: "sticky",
+          bottom: 0,
+          backgroundColor: "#fff",
+          padding: "16px 0",
+          borderTop: "1px solid #e9ecef",
+          display: "flex", 
+          gap: "10px", 
+          justifyContent: "flex-end",
+          marginTop: "auto",
+          zIndex: 10
+        }}>
+          <button
+            onClick={() => {
+              setShowCreateModal(false);
+              resetForm();
+            }}
+            style={{
+              ...buttonStyle,
+              backgroundColor: "#6c757d",
+              color: "white",
+              padding: "10px 20px"
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleCreateSport}
+            disabled={creating || !formData.sport_name.trim()}
+            style={{
+              ...buttonStyle,
+              backgroundColor: creating || !formData.sport_name.trim() ? "#ccc" : "#007bff",
+              color: "white",
+              padding: "10px 20px"
+            }}
+          >
+            {creating ? "Creating..." : "Create Sport"}
+          </button>
+        </div>
+      </div>
       </Modal>
 
-      {/* Edit Sport Modal */}
+      {/* Edit Sport Modal - Horizontal Layout */}
       <Modal
         isOpen={showEditModal}
         title={`Edit Sport: ${selectedSport?.sport_name}`}
         showDefaultButtons={false}
-        width="450px"
+        width="900px"
         onClose={() => {
           setShowEditModal(false);
           resetForm();
@@ -1037,16 +1078,42 @@ export default function Sports() {
         <div style={{ 
           padding: "0",
           width: "100%",
-          boxSizing: "border-box"
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          height: "70vh",
+          maxHeight: "600px"
         }}>
-          {/* Basic Info Section - Vertical */}
+          {/* Main Content Area - Horizontal Layout */}
           <div style={{
-            marginBottom: "14px",
-            padding: "12px",
-            backgroundColor: "#f8f9fa",
-            borderRadius: "6px",
-            border: "1px solid #e9ecef"
+            display: "flex",
+            gap: "20px",
+            flex: 1,
+            overflow: "hidden"
           }}>
+            {/* Left Side - Basic Info Section */}
+            <div style={{
+              flex: "0 0 380px",
+              overflowY: "auto",
+              paddingRight: "10px"
+            }}>
+              <div style={{
+                marginBottom: "14px",
+                padding: "12px",
+                backgroundColor: "#f8f9fa",
+                borderRadius: "6px",
+                border: "1px solid #e9ecef"
+              }}>
+                <h5 style={{
+                  margin: "0 0 12px 0",
+                  color: "#495057",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  borderBottom: "1px solid #e9ecef",
+                  paddingBottom: "8px"
+                }}>
+                  Basic Information
+                </h5>
             <div style={{ marginBottom: "10px" }}>
               <label style={{ display: "block", marginBottom: "4px", fontWeight: "600", color: "#495057", fontSize: "13px" }}>
                 Sport Name (Cannot be changed)
@@ -1115,10 +1182,18 @@ export default function Sports() {
                 </small>
               )}
             </div>
-          </div>
+              </div>
+            </div>
 
-          {/* Tournament Details Builder */}
-          <div style={{ marginBottom: "14px" }}>
+            {/* Right Side - Tournament Details */}
+            <div style={{
+              flex: 1,
+              overflowY: "auto",
+              paddingLeft: "10px",
+              borderLeft: "1px solid #e9ecef"
+            }}>
+              {/* Tournament Details Builder */}
+              <div style={{ marginBottom: "14px" }}>
             <h4 style={{ 
               marginBottom: "10px", 
               color: "#495057", 
@@ -1336,44 +1411,51 @@ export default function Sports() {
               </div>
             )}
           </div>
-
-          {/* Footer Buttons */}
-          <div style={{ 
-            display: "flex", 
-            gap: "10px", 
-            justifyContent: "flex-end",
-            paddingTop: "16px",
-            borderTop: "1px solid #e9ecef"
-          }}>
-            <button
-              onClick={() => {
-                setShowEditModal(false);
-                resetForm();
-                setSelectedSport(null);
-              }}
-              style={{
-                ...buttonStyle,
-                backgroundColor: "#6c757d",
-                color: "white",
-                padding: "10px 20px"
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleUpdateSport}
-              disabled={editing}
-              style={{
-                ...buttonStyle,
-                backgroundColor: editing ? "#ccc" : "#ffc107",
-                color: "white",
-                padding: "10px 20px"
-              }}
-            >
-              {editing ? "Updating..." : "Update Sport"}
-            </button>
-          </div>
         </div>
+        </div>
+
+        {/* Sticky Footer Buttons */}
+        <div style={{ 
+          position: "sticky",
+          bottom: 0,
+          backgroundColor: "#fff",
+          padding: "16px 0",
+          borderTop: "1px solid #e9ecef",
+          display: "flex", 
+          gap: "10px", 
+          justifyContent: "flex-end",
+          marginTop: "auto",
+          zIndex: 10
+        }}>
+          <button
+            onClick={() => {
+              setShowEditModal(false);
+              resetForm();
+              setSelectedSport(null);
+            }}
+            style={{
+              ...buttonStyle,
+              backgroundColor: "#6c757d",
+              color: "white",
+              padding: "10px 20px"
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleUpdateSport}
+            disabled={editing}
+            style={{
+              ...buttonStyle,
+              backgroundColor: editing ? "#ccc" : "#ffc107",
+              color: "white",
+              padding: "10px 20px"
+            }}
+          >
+            {editing ? "Updating..." : "Update Sport"}
+          </button>
+        </div>
+      </div>
       </Modal>
 
       {/* Remove Confirmation Modal */}

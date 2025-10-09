@@ -34,7 +34,7 @@ export default function Modal({
         borderRadius: "8px",
         width: width,
         maxWidth: "95vw",
-        maxHeight: "85vh",
+        maxHeight: "90vh",
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
