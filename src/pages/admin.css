@@ -446,6 +446,17 @@ body, html {
 }
 .sidebar-dropdown {
   position: relative;
+
+  & > .sidebar-btn {
+    width: 100%;
+    justify-content: flex-start !important;
+
+    & svg {
+      margin-left: auto;
+      transition: transform 0.3s ease;
+    }
+  }
+
 }
 .dropdown-content {
   display: flex;
