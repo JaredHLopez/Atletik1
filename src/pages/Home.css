@@ -353,3 +353,10 @@ p:has(+ #degree-tag) {
   aspect-ratio: 16/9;
   margin-top: 2rem;
 }
+
+.version-tag {
+  margin-top: 12px;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-family: 'General Sans', sans-serif;
+}
