@@ -69,6 +69,7 @@ function Home() {
 
           <a
               href="https://drive.google.com/uc?export=download&id=1vtuJpwteirRY7kn3ATdSP2DGoiIjkdAT"
+              // href="https://github.com/ElliotJcbH/Releases/releases/download/Atletik/Atletik-v1.0.0-alpha.1.apk"
               className="download-button"
               download
           >
