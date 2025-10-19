@@ -55,7 +55,7 @@ function Home() {
         </nav>
       </header>
       {/* ==============================
-          SECTION 1: HERO
+          SECTION 1: HERO as
       ============================== */}
       <section className="hero-section">
         <div id="color-bomb" />
