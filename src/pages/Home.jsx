@@ -128,6 +128,22 @@ function Home() {
           <p id="degree-tag">Bachelor of Science in Information Technology</p>
         </div>
       </section>
+      <footer>
+        <a href={'/privacy-policy'}>
+          <Link
+            to={'privacy-policy'}
+          >
+            Privacy Policy
+          </Link>
+        </a>
+        <a href={''}>
+          <Link
+              to={'/terms-of-service'}
+          >
+            Terms of Service
+          </Link>
+        </a>
+      </footer>
     </div>
   );
 }

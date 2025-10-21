@@ -296,6 +296,7 @@ p {
 }
 
 .student-list {
+  text-align: left;
   margin-top: 25px;
   font-size: 1rem;
   line-height: 1.5;
@@ -313,10 +314,12 @@ p {
 }
 
 p:has(+ #degree-tag) {
+  text-align: center;
   margin-top: 1rem;
 }
 
 #degree-tag {
+  text-align: center;
   margin-top: 5px;
   font-weight: 600;
 }
@@ -359,4 +362,21 @@ p:has(+ #degree-tag) {
   font-size: 1rem;
   color: rgba(255, 255, 255, 0.8);
   font-family: 'General Sans', sans-serif;
+}
+
+footer {
+  position: relative;
+  z-index: 999;
+  padding-block: 2rem;
+  display: flex;
+  justify-content: space-evenly;
+  width: 100%;
+  max-width: 800px;
+
+  & a {
+    color: white;
+    font-family: 'General Sans', sans-serif;
+    text-decoration: none;
+  }
+
 }
