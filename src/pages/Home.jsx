@@ -129,12 +129,8 @@ function Home() {
         </div>
       </section>
       <footer>
-        <a href={'/privacy-policy'}>
-          <Link
-            to={'privacy-policy'}
-          >
+        <a href={'https://s3.privyr.com/privacy/privacy-policy.html?d=eyJlbWFpbCI6ImF0bGV0aWszMDBAZ21haWwuY29tIiwiY29tcGFueSI6IkF0bGV0aWsiLCJnZW5fYXQiOiIyMDI1LTEwLTIxVDEzOjI0OjIyLjg2NFoifQ=='} target="_blank" rel="noopener noreferrer">
             Privacy Policy
-          </Link>
         </a>
         <a href={''}>
           <Link
