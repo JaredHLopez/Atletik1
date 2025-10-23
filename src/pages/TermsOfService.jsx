@@ -11,7 +11,7 @@ function TermsOfService() {
                 justifyContent: "center",
                 maxWidth: 900,
                 marginInline: "auto",
-                paddingInline: "24px",
+                paddingInline: "1rem",
             }}
         >
             <div>
