@@ -129,14 +129,14 @@ function Home() {
         </div>
       </section>
       <footer>
-        <a>
+        <a href={'/privacy-policy'}>
           <Link
-            to={'/privacy-policy'}
+            to={'privacy-policy'}
           >
             Privacy Policy
           </Link>
         </a>
-        <a>
+        <a href={''}>
           <Link
               to={'/terms-of-service'}
           >
