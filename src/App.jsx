@@ -6,6 +6,7 @@ import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Wrapper from "./pages/Wrapper";
+import TermsOfService from "./pages/TermsOfService.jsx";
 
 function App() {
   return (
@@ -28,6 +29,11 @@ function App() {
               <Dashboard />
             </Wrapper>
           }
+        />
+
+        <Route
+            path='/terms-of-service'
+            element={<TermsOfService />}
         />
       </Routes>
     </BrowserRouter>
