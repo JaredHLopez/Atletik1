@@ -7,7 +7,7 @@ export const useApplications = (initialType = "club") => {
   // State
   const [applications, setApplications] = useState([]);
   const [timeFilter, setTimeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("pending");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -52,7 +52,7 @@ export const useApplications = (initialType = "club") => {
     try {
       const { data: appData, error: appError } = await supabase
         .from("organizer_applications")
-        .select("email")
+        .select("organizer_name")
         .eq("organizer_application_id", applicationId)
         .single();
 
@@ -61,7 +61,7 @@ export const useApplications = (initialType = "club") => {
       const { data: organizerData, error: organizerError } = await supabase
         .from("organizers")
         .select("organizer_id")
-        .eq("email", appData.email)
+        .eq("organizer_name", appData.organizer_name)
         .single();
 
       return !organizerError && organizerData;
@@ -98,14 +98,6 @@ export const useApplications = (initialType = "club") => {
 
       if (queryError) {
         throw queryError;
-      }
-
-      console.log("=== FETCHED APPLICATION DATA ===");
-      console.log("Total applications fetched:", data?.length || 0);
-      console.log("Filter status:", statusFilter);
-      if (data && data.length > 0) {
-        console.log("Sample application object:", data[0]);
-        console.log("Application statuses:", data.map(app => app.application_status));
       }
 
       setApplications(data || []);

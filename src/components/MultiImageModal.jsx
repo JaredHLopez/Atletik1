@@ -1,12 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 
-export default function ImageModal({ 
-  src, 
-  alt, 
-  isOpen, 
-  onClose, 
+export default function MultiImageModal({ 
   images = [], 
   currentIndex = 0, 
+  isOpen, 
+  onClose, 
   onNavigate 
 }) {
   const [scale, setScale] = useState(1);
@@ -15,12 +13,11 @@ export default function ImageModal({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const imageRef = useRef(null);
 
-  // Support both single image and multi-image modes
-  const isMultiImage = images.length > 1;
-  const currentSrc = isMultiImage ? images[currentIndex]?.src || src : src;
-  const currentAlt = isMultiImage ? images[currentIndex]?.alt || alt : alt;
+  if (!isOpen || !images || images.length === 0) return null;
 
-  if (!isOpen) return null;
+  const currentImage = images[currentIndex] || {};
+  const currentSrc = currentImage.src;
+  const currentAlt = currentImage.alt || `Document ${currentIndex + 1}`;
 
   // Reset scale and position when changing images
   const handleImageChange = () => {
@@ -29,49 +26,44 @@ export default function ImageModal({
   };
 
   const handlePrevious = () => {
-    if (isMultiImage && onNavigate && currentIndex > 0) {
+    if (onNavigate && currentIndex > 0) {
       onNavigate(currentIndex - 1);
       handleImageChange();
     }
   };
 
   const handleNext = () => {
-    if (isMultiImage && onNavigate && currentIndex < images.length - 1) {
+    if (onNavigate && currentIndex < images.length - 1) {
       onNavigate(currentIndex + 1);
       handleImageChange();
     }
   };
 
-  // Add keyboard event listeners
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (!isMultiImage) return;
-      
       if (e.key === 'ArrowLeft') {
         handlePrevious();
       } else if (e.key === 'ArrowRight') {
         handleNext();
+      } else if (e.key === 'Escape') {
+        onClose();
       }
     };
 
-    // Only add listeners when modal is open and has multiple images
-    if (isOpen && isMultiImage) {
+    if (isOpen) {
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
-    
-    // Return empty cleanup function when conditions are not met
-    return () => {};
-  }, [isOpen, isMultiImage, currentIndex, images.length]);
+  }, [isOpen, currentIndex, images.length]);
 
   const handleZoomIn = () => {
-    setScale(prev => Math.min(prev + 0.2, 3));
+    setScale(prev => Math.min(prev + 0.25, 5)); // Increased max zoom to 5x and step to 0.25
   };
 
   const handleZoomOut = () => {
     setScale(prev => {
-      const newScale = Math.max(prev - 0.2, 0.5);
-      // Reset position if zooming out to 1x or less
+      const newScale = Math.max(prev - 0.25, 0.25); // Decreased min zoom to 0.25x and step to 0.25
       if (newScale <= 1) {
         setPosition({ x: 0, y: 0 });
       }
@@ -114,31 +106,17 @@ export default function ImageModal({
     setIsDragging(false);
   };
 
-  const handleTouchStart = (e) => {
-    if (scale > 1) {
-      setIsDragging(true);
-      const touch = e.touches[0];
-      setDragStart({
-        x: touch.clientX - position.x,
-        y: touch.clientY - position.y
-      });
-      e.preventDefault();
-    }
-  };
-
-  const handleTouchMove = (e) => {
-    if (isDragging && scale > 1) {
-      const touch = e.touches[0];
-      setPosition({
-        x: touch.clientX - dragStart.x,
-        y: touch.clientY - dragStart.y
-      });
-      e.preventDefault();
-    }
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
+  // Mouse wheel zoom
+  const handleWheel = (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.15 : 0.15; // Smoother wheel zoom
+    setScale(prev => {
+      const newScale = Math.min(Math.max(prev + delta, 0.25), 5); // Same range as buttons
+      if (newScale <= 1) {
+        setPosition({ x: 0, y: 0 });
+      }
+      return newScale;
+    });
   };
 
   return (
@@ -159,8 +137,7 @@ export default function ImageModal({
       onClick={handleBackdropClick}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      onWheel={handleWheel}
     >
       {/* Close button */}
       <button
@@ -186,27 +163,25 @@ export default function ImageModal({
         ×
       </button>
 
-      {/* Image counter for multi-image mode */}
-      {isMultiImage && (
-        <div
-          style={{
-            position: "absolute",
-            top: 20,
-            left: 20,
-            background: "rgba(0, 0, 0, 0.7)",
-            color: "#fff",
-            padding: "8px 16px",
-            borderRadius: 15,
-            fontSize: 14,
-            zIndex: 1001
-          }}
-        >
-          {currentIndex + 1} / {images.length}
-        </div>
-      )}
+      {/* Image counter */}
+      <div
+        style={{
+          position: "absolute",
+          top: 20,
+          left: 20,
+          background: "rgba(0, 0, 0, 0.7)",
+          color: "#fff",
+          padding: "8px 16px",
+          borderRadius: 15,
+          fontSize: 14,
+          zIndex: 1001
+        }}
+      >
+        {currentIndex + 1} / {images.length}
+      </div>
 
-      {/* Navigation arrows for multi-image mode */}
-      {isMultiImage && (
+      {/* Navigation arrows */}
+      {images.length > 1 && (
         <>
           {/* Previous button */}
           <button
@@ -274,20 +249,22 @@ export default function ImageModal({
           background: "rgba(0, 0, 0, 0.7)",
           padding: "10px 15px",
           borderRadius: 25,
-          zIndex: 1001
+          zIndex: 1001,
+          alignItems: "center"
         }}
       >
         <button
           onClick={handleZoomOut}
+          disabled={scale <= 0.25}
           style={{
-            background: "rgba(255, 255, 255, 0.2)",
+            background: scale <= 0.25 ? "rgba(255, 255, 255, 0.1)" : "rgba(255, 255, 255, 0.2)",
             border: "none",
-            color: "#fff",
+            color: scale <= 0.25 ? "#888" : "#fff",
             fontSize: 18,
             width: 35,
             height: 35,
             borderRadius: "50%",
-            cursor: "pointer",
+            cursor: scale <= 0.25 ? "not-allowed" : "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center"
@@ -295,6 +272,7 @@ export default function ImageModal({
         >
           -
         </button>
+        
         <button
           onClick={handleReset}
           style={{
@@ -304,28 +282,50 @@ export default function ImageModal({
             fontSize: 12,
             padding: "8px 12px",
             borderRadius: 15,
-            cursor: "pointer"
+            cursor: "pointer",
+            minWidth: "60px"
           }}
         >
           {Math.round(scale * 100)}%
         </button>
+        
         <button
           onClick={handleZoomIn}
+          disabled={scale >= 5}
           style={{
-            background: "rgba(255, 255, 255, 0.2)",
+            background: scale >= 5 ? "rgba(255, 255, 255, 0.1)" : "rgba(255, 255, 255, 0.2)",
             border: "none",
-            color: "#fff",
+            color: scale >= 5 ? "#888" : "#fff",
             fontSize: 18,
             width: 35,
             height: 35,
             borderRadius: "50%",
-            cursor: "pointer",
+            cursor: scale >= 5 ? "not-allowed" : "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center"
           }}
         >
           +
+        </button>
+        
+        {/* Fit to screen button */}
+        <button
+          onClick={() => {
+            setScale(0.8);
+            setPosition({ x: 0, y: 0 });
+          }}
+          style={{
+            background: "rgba(255, 255, 255, 0.2)",
+            border: "none",
+            color: "#fff",
+            fontSize: 10,
+            padding: "8px 10px",
+            borderRadius: 15,
+            cursor: "pointer"
+          }}
+        >
+          Fit
         </button>
       </div>
 
@@ -340,24 +340,25 @@ export default function ImageModal({
           justifyContent: "center"
         }}
       >
-        <img
-          ref={imageRef}
-          src={currentSrc}
-          alt={currentAlt}
-          style={{
-            transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
-            transformOrigin: "center",
-            transition: isDragging ? "none" : "transform 0.2s ease",
-            maxWidth: "100%",
-            maxHeight: "100%",
-            objectFit: "contain",
-            cursor: scale > 1 ? (isDragging ? "grabbing" : "grab") : "default",
-            userSelect: "none"
-          }}
-          onMouseDown={handleMouseDown}
-          onTouchStart={handleTouchStart}
-          draggable={false}
-        />
+        {currentSrc && (
+          <img
+            ref={imageRef}
+            src={currentSrc}
+            alt={currentAlt}
+            style={{
+              transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
+              transformOrigin: "center",
+              transition: isDragging ? "none" : "transform 0.2s ease",
+              maxWidth: "100%",
+              maxHeight: "100%",
+              objectFit: "contain",
+              cursor: scale > 1 ? (isDragging ? "grabbing" : "grab") : "default",
+              userSelect: "none"
+            }}
+            onMouseDown={handleMouseDown}
+            draggable={false}
+          />
+        )}
       </div>
     </div>
   );
