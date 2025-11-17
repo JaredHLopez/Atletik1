@@ -778,8 +778,7 @@ export default function AdminTable() {
                 width: "100px"
               }}>
                 Status
-              </th>
-              <th style={{ 
+              </th>              <th style={{ 
                 border: "1px solid #eee", 
                 padding: "12px 8px", 
                 textAlign: "left",
@@ -789,23 +788,13 @@ export default function AdminTable() {
               }}>
                 Created At
               </th>
-              <th style={{ 
-                border: "1px solid #eee", 
-                padding: "12px 8px", 
-                textAlign: "left",
-                fontWeight: "600",
-                color: "#333",
-                minWidth: "160px"
-              }}>
-                Last Sign In
-              </th>
             </tr>
           </thead>
           <tbody>
             {adminData.length === 0 ? (
               <tr>
                 <td 
-                  colSpan="7" 
+                  colSpan="6"
                   style={{ 
                     border: "1px solid #eee", 
                     padding: "20px", 
@@ -889,36 +878,13 @@ export default function AdminTable() {
                       }}>
                         {status}
                       </span>
-                    </td>
-                    <td style={{ 
+                    </td>                    <td style={{ 
                       border: "1px solid #eee", 
                       padding: "8px",
                       fontSize: "12px",
                       whiteSpace: "nowrap"
                     }}>
                       {formatDate(admin.created_at)}
-                    </td>
-                    <td style={{ 
-                      border: "1px solid #eee", 
-                      padding: "8px",
-                      fontSize: "12px",
-                      whiteSpace: "nowrap"
-                    }}>
-                      {admin.is_current_user ? (
-                        <div>
-                          <div>{formatDate(admin.last_sign_in_at)}</div>
-                          <div style={{ 
-                            fontSize: "10px", 
-                            color: "#28a745", 
-                            fontStyle: "italic",
-                            marginTop: "2px"
-                          }}>
-                            (Currently Online)
-                          </div>
-                        </div>
-                      ) : (
-                        formatDate(admin.last_sign_in_at)
-                      )}
                     </td>
                   </tr>
                 );

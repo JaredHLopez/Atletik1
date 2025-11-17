@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import supabase from "../../helper/supabaseClient";
-import ImageModal from "../ImageModal";
+import ZoomableImageViewer from "../ZoomableImageViewer";
 import StatusBadge from "./StatusBadge";
 import ActionButton from "./ActionButton";
 
@@ -106,16 +106,23 @@ export default function ReportTable({
   onReject,
   onRestore,
   buttonStyle = {}
-}) {
-  const imageUrls = useImageUrls(reports, imageConfig);
-  const [modalImage, setModalImage] = useState({ isOpen: false, src: "", alt: "" });
+}) {  const imageUrls = useImageUrls(reports, imageConfig);
+  const [modalImage, setModalImage] = useState({ 
+    isOpen: false, 
+    images: [],
+    initialIndex: 0
+  });
 
   const openImageModal = (src, alt) => {
-    setModalImage({ isOpen: true, src, alt });
+    setModalImage({ 
+      isOpen: true, 
+      images: [{ src, alt }],
+      initialIndex: 0
+    });
   };
 
   const closeImageModal = () => {
-    setModalImage({ isOpen: false, src: "", alt: "" });
+    setModalImage({ isOpen: false, images: [], initialIndex: 0 });
   };
 
   const renderImageCell = (report, type, displayName) => {
@@ -284,15 +291,14 @@ export default function ReportTable({
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
+          </tbody>        </table>
       </div>
 
-      <ImageModal
-        src={modalImage.src}
-        alt={modalImage.alt}
+      <ZoomableImageViewer
+        images={modalImage.images}
         isOpen={modalImage.isOpen}
         onClose={closeImageModal}
+        initialIndex={modalImage.initialIndex}
       />
     </>
   );
