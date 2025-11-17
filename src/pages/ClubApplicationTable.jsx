@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import supabase from "../helper/supabaseClient";
-import ImageModal from "../components/ImageModal";
+import ZoomableImageViewer from "../components/ZoomableImageViewer";
 import StatusBadge from "../components/shared/StatusBadge";
 import ErrorDisplay from "../components/shared/ErrorDisplay";
 import Modal from "../components/shared/Modal";
@@ -14,7 +14,11 @@ export default function ClubApplicationTable({
   bucketName,
   currentStatus
 }) {
-  const [modalImage, setModalImage] = useState({ isOpen: false, src: "", alt: "" });
+  const [modalImage, setModalImage] = useState({ 
+    isOpen: false, 
+    images: [],
+    initialIndex: 0
+  });
   const [imageUrls, setImageUrls] = useState({});
   const [rejectionReason, setRejectionReason] = useState("");
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -183,9 +187,7 @@ export default function ClubApplicationTable({
     }
     
     onRestore(applicationId);
-  };
-
-  const confirmReject = () => {
+  };  const confirmReject = () => {
     if (rejectionReason.trim()) {
       onReject(selectedApplicationId, rejectionReason.trim());
       setShowRejectModal(false);
@@ -194,12 +196,42 @@ export default function ClubApplicationTable({
     }
   };
 
-  const openImageModal = (src, alt) => {
-    setModalImage({ isOpen: true, src, alt });
+  const openImageModal = (applicationId, imageType = 'bir') => {
+    // Collect all available images for this application in a fixed order
+    const images = [];
+    const imageTypes = ['bir', 'permit', 'sig', 'id'];
+    let clickedImageIndex = 0;
+    
+    // Build images array and track which one was clicked
+    imageTypes.forEach((type, index) => {
+      const imageUrl = imageUrls[`${type}_${applicationId}`];
+      if (imageUrl) {
+        if (type === imageType) {
+          clickedImageIndex = images.length; // Set the index of the clicked image
+        }
+        const altTexts = {
+          'bir': 'BIR Registration',
+          'permit': 'Business Permit',
+          'sig': 'Owner Signature',
+          'id': 'Owner ID Card'
+        };
+        images.push({ src: imageUrl, alt: altTexts[type] });
+      }
+    });
+    
+    if (images.length > 0) {
+      setModalImage({ 
+        isOpen: true, 
+        images,
+        initialIndex: clickedImageIndex
+      });
+    } else {
+      console.error("No valid images found to display");
+    }
   };
 
   const closeImageModal = () => {
-    setModalImage({ isOpen: false, src: "", alt: "" });
+    setModalImage({ isOpen: false, images: [], initialIndex: 0 });
   };
 
   return (
@@ -273,15 +305,10 @@ export default function ClubApplicationTable({
                   </td>
                   <td style={{ border: "1px solid #eee", padding: "8px 6px", fontSize: 13 }}>
                     {item.province}
-                  </td>
-                  <td style={{ border: "1px solid #eee", padding: "8px 6px", textAlign: "center" }}>
+                  </td>                  <td style={{ border: "1px solid #eee", padding: "8px 6px", textAlign: "center" }}>
                     {(() => {
                       const imageKey = `bir_${item.club_application_id}`;
                       const imageUrl = imageUrls[imageKey];
-                      console.log(`Rendering BIR for app ${item.club_application_id}:`);
-                      console.log(`- Looking for key: ${imageKey}`);
-                      console.log(`- Found URL: ${imageUrl}`);
-                      console.log(`- ImageUrls object:`, imageUrls);
                       
                       return imageUrl ? (
                         <img
@@ -294,9 +321,7 @@ export default function ClubApplicationTable({
                             borderRadius: 6,
                             cursor: "pointer"
                           }}
-                          onClick={() => openImageModal(imageUrl, "BIR Registration")}
-                          onLoad={() => console.log(`BIR image loaded successfully: ${imageUrl}`)}
-                          onError={() => console.log(`BIR image failed to load: ${imageUrl}`)}
+                          onClick={() => openImageModal(item.club_application_id, 'bir')}
                         />
                       ) : (
                         <span style={{ color: "#888", fontSize: 12 }}>No document</span>
@@ -315,7 +340,7 @@ export default function ClubApplicationTable({
                           borderRadius: 6,
                           cursor: "pointer"
                         }}
-                        onClick={() => openImageModal(imageUrls[`permit_${item.club_application_id}`], "Business Permit")}
+                        onClick={() => openImageModal(item.club_application_id, 'permit')}
                       />
                     ) : (
                       <span style={{ color: "#888", fontSize: 12 }}>No document</span>
@@ -333,7 +358,7 @@ export default function ClubApplicationTable({
                           borderRadius: 6,
                           cursor: "pointer"
                         }}
-                        onClick={() => openImageModal(imageUrls[`sig_${item.club_application_id}`], "Owner Signature")}
+                        onClick={() => openImageModal(item.club_application_id, 'sig')}
                       />
                     ) : (
                       <span style={{ color: "#888", fontSize: 12 }}>No signature</span>
@@ -351,7 +376,7 @@ export default function ClubApplicationTable({
                           borderRadius: 6,
                           cursor: "pointer"
                         }}
-                        onClick={() => openImageModal(imageUrls[`id_${item.club_application_id}`], "Owner ID Card")}
+                        onClick={() => openImageModal(item.club_application_id, 'id')}
                       />
                     ) : (
                       <span style={{ color: "#888", fontSize: 12 }}>No ID card</span>
@@ -526,14 +551,11 @@ export default function ClubApplicationTable({
           >
             Reject
           </button>
-        </div>
-      </Modal>
-
-      <ImageModal
-        src={modalImage.src}
-        alt={modalImage.alt}
+        </div>      </Modal>      <ZoomableImageViewer
+        images={modalImage.images}
         isOpen={modalImage.isOpen}
         onClose={closeImageModal}
+        initialIndex={modalImage.initialIndex}
       />
     </>
   );

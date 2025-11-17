@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import supabase from "../helper/supabaseClient";
-import SimpleImageViewer from "../components/SimpleImageViewer";
+import ZoomableImageViewer from "../components/ZoomableImageViewer";
 import StatusBadge from "../components/shared/StatusBadge";
 import ErrorDisplay from "../components/shared/ErrorDisplay";
 
@@ -423,11 +423,10 @@ export default function OrganizerApplicationTable({
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
+          </tbody>        </table>
       </div>
 
-      <SimpleImageViewer
+      <ZoomableImageViewer
         images={modalImage.images}
         isOpen={modalImage.isOpen}
         onClose={closeImageModal}

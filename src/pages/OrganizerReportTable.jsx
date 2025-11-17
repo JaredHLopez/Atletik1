@@ -3,31 +3,16 @@ import ReportTable from "../components/shared/ReportTable";
 
 const ORGANIZER_TABLE_COLUMNS = [
   {
-    key: "username",
-    title: "Username",
-    maxWidth: 180,
-    render: (report) => (
-      <div style={{ maxWidth: 180, overflowX: "auto" }}>
-        {report.username || "Unknown"}
-      </div>
-    )
-  },
-  {
-    key: "suffix",
-    title: "Suffix",
-    maxWidth: 150,
-    render: (report) => (
-      <div style={{ maxWidth: 150, overflowX: "auto" }}>
-        {report.suffix || "No suffix"}
-      </div>
-    )
+    key: "organizer_name",
+    title: "Organizer Name",
+    render: (report) => report.organizer_name || "Unknown"
   },
   {
     key: "intro",
     title: "Intro",
-    maxWidth: 200,
+    maxWidth: 150,
     render: (report) => (
-      <div style={{ maxWidth: 200, overflowX: "auto" }}>
+      <div style={{ maxWidth: 150, overflowX: "auto" }}>
         {report.intro || "No intro"}
       </div>
     )
@@ -35,14 +20,34 @@ const ORGANIZER_TABLE_COLUMNS = [
   {
     key: "bio",
     title: "Bio",
-    render: (report) => report.bio || "No bio"
+    maxWidth: 200,
+    render: (report) => (
+      <div style={{ maxWidth: 200, overflowX: "auto" }}>
+        {report.bio || "No bio"}
+      </div>
+    )
+  },
+  {
+    key: "sports",
+    title: "Sports",
+    maxWidth: 150,
+    render: (report) => (
+      <div style={{ maxWidth: 150, overflowX: "auto" }}>
+        {Array.isArray(report.sports) ? report.sports.join(", ") : report.sports || "No sports"}
+      </div>
+    )
+  },
+  {
+    key: "competitiveness",
+    title: "Competitiveness",
+    render: (report) => report.competitiveness || "N/A"
   },
   {
     key: "profile_image",
     title: "Profile Image",
     centerAlign: true,
     render: (report, { renderImageCell }) => {
-      const displayName = report.username || "Organizer";
+      const displayName = report.organizer_name || "Organizer";
       return renderImageCell(report, 'profile', displayName);
     }
   },
@@ -51,7 +56,7 @@ const ORGANIZER_TABLE_COLUMNS = [
     title: "Background Image",
     centerAlign: true,
     render: (report, { renderImageCell }) => {
-      const displayName = report.username || "Organizer";
+      const displayName = report.organizer_name || "Organizer";
       return renderImageCell(report, 'background', displayName);
     }
   },
@@ -74,7 +79,7 @@ const ORGANIZER_TABLE_COLUMNS = [
 ];
 
 const ORGANIZER_IMAGE_CONFIG = {
-  idField: "user_id",
+  idField: "organizer_id",
   profileField: "profile_image",
   backgroundField: "background_image",
   profileBucket: "profile-images",

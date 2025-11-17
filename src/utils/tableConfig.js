@@ -18,6 +18,7 @@ export const REPORT_TABLE_MAP = {
     table: "user_reports",
     id: "reported_id",
     join: "users:reported_id(user_id, username, intro, bio, profile_image, background_image, suspended_until)",
+    fields: "users:reported_id(user_id, username, intro, bio, profile_image, background_image, suspended_until)",
     entityTable: "users",
     pk: "user_id"
   },
@@ -25,20 +26,22 @@ export const REPORT_TABLE_MAP = {
     table: "club_reports",
     id: "reported_id",
     join: "clubs:reported_id(club_id, club_name, sports, street_address, barangay, city, province, profile_image, background_image, suspended_until)",
+    fields: "clubs:reported_id(club_id, club_name, sports, street_address, barangay, city, province, profile_image, background_image, suspended_until)",
     entityTable: "clubs",
-    pk: "club_id"
-  },
+    pk: "club_id"  },
   organizer: {
     table: "organizer_reports",
     id: "reported_id",
-    join: "organizers:reported_id(user_id, username, suffix, intro, bio, profile_image, background_image, suspended_until)",
+    join: "organizers:reported_id(organizer_id, organizer_name, intro, bio, sports, competitiveness, profile_image, background_image, suspended_until)",
+    fields: "organizers:reported_id(organizer_id, organizer_name, intro, bio, sports, competitiveness, profile_image, background_image, suspended_until)",
     entityTable: "organizers",
-    pk: "user_id"
+    pk: "organizer_id"
   },
   team: {
     table: "team_reports",
     id: "reported_id",
     join: "teams:reported_id(team_id, team_name, sports, street_address, barangay, city, province, intro, bio, profile_image, background_image, suspended_until)",
+    fields: "teams:reported_id(team_id, team_name, sports, street_address, barangay, city, province, intro, bio, profile_image, background_image, suspended_until)",
     entityTable: "teams",
     pk: "team_id"
   }
